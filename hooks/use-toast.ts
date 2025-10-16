@@ -180,9 +180,14 @@ function useToast() {
     };
   }, [state]);
 
+  const success = (props: Omit<Toast, "id" | "variant">) => {
+    return toast({ ...props, variant: "success" });
+  };
+
   return {
     ...state,
     toast,
+    success,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   };
 }

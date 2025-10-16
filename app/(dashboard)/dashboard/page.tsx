@@ -51,12 +51,6 @@ export default function DashboardPage() {
             Overview of your freight operations
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Make Bid/Offer</Button>
-          <Button variant="outline">Add business friend</Button>
-          <Button variant="outline">Make PDF Report</Button>
-          <Button variant="outline">Ask AI</Button>
-        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

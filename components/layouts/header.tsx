@@ -35,6 +35,7 @@ export function Header({ user }: HeaderProps) {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast({
+      variant: "success",
       title: "Logged out",
       description: "You have been logged out successfully.",
     });

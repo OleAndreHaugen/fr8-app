@@ -53,6 +53,7 @@ export default function LoginPage() {
       }
 
       toast({
+        variant: "success",
         title: "Success",
         description: "Logged in successfully!",
       });
