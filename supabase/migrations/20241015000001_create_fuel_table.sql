@@ -27,28 +27,6 @@ create policy "Allow authenticated users to read fuel data"
   to authenticated
   using (true);
 
--- Policy: Allow authenticated users to insert fuel data
-create policy "Allow authenticated users to insert fuel data"
-  on public.fuel
-  for insert
-  to authenticated
-  with check (true);
-
--- Policy: Allow authenticated users to update fuel data
-create policy "Allow authenticated users to update fuel data"
-  on public.fuel
-  for update
-  to authenticated
-  using (true)
-  with check (true);
-
--- Policy: Allow authenticated users to delete fuel data
-create policy "Allow authenticated users to delete fuel data"
-  on public.fuel
-  for delete
-  to authenticated
-  using (true);
-
 -- Create indexes for better query performance
 create index if not exists fuel_type_idx on public.fuel(type);
 create index if not exists fuel_product_idx on public.fuel(product);

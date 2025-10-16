@@ -8,8 +8,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Database } from "@/types/database";
-import { ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus, Maximize2, Minimize2, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 type FFAData = Database['public']['Tables']['ffa']['Row'];
 
@@ -182,18 +184,61 @@ interface FFAPriceCardProps {
   ffa: FFAData;
   showChart?: boolean;
   compact?: boolean;
+  allowToggle?: boolean;
+  globalState?: CardState;
 }
 
-export function FFAPriceCard({ ffa, showChart = true, compact = false }: FFAPriceCardProps) {
+type CardState = 'compact' | 'full' | 'full-with-chart';
+
+export function FFAPriceCard({ ffa, showChart = true, compact = false, allowToggle = false, globalState }: FFAPriceCardProps) {
+  const [cardState, setCardState] = useState<CardState>(() => {
+    if (globalState) return globalState;
+    if (compact) return 'compact';
+    if (showChart) return 'full-with-chart';
+    return 'full';
+  });
+  
   const forward = ffa.forward as unknown as ForwardPricing | null;
   
   // Get current price from price0 (current month)
   const currentPrice = forward?.price0 || 0;
   const previousPrice = forward?.price1 || null; // Use price1 as previous for comparison
   
-  if (compact) {
+  // Use global state if provided, otherwise use local state
+  const currentState = globalState || cardState;
+  
+  const cycleState = () => {
+    setCardState(prev => {
+      switch (prev) {
+        case 'compact': return 'full';
+        case 'full': return 'full-with-chart';
+        case 'full-with-chart': return 'compact';
+        default: return 'compact';
+      }
+    });
+  };
+
+  const getToggleIcon = () => {
+    switch (currentState) {
+      case 'compact': return <Maximize2 className="h-4 w-4" />;
+      case 'full': return <BarChart3 className="h-4 w-4" />;
+      case 'full-with-chart': return <Minimize2 className="h-4 w-4" />;
+      default: return <Maximize2 className="h-4 w-4" />;
+    }
+  };
+
+  const getToggleTitle = () => {
+    switch (currentState) {
+      case 'compact': return 'Expand card';
+      case 'full': return 'Show charts';
+      case 'full-with-chart': return 'Minimize card';
+      default: return 'Toggle layout';
+    }
+  };
+  
+  if (currentState === 'compact') {
     return (
-      <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+      <div className="flex items-center justify-between p-3 border bg-white rounded-xl hover:bg-muted/50 transition-colors">
         <div className="flex-1">
           <div className="font-medium text-sm">{ffa.contract}</div>
           <div className="text-xs text-muted-foreground">Forward Freight Agreement</div>
@@ -205,21 +250,45 @@ export function FFAPriceCard({ ffa, showChart = true, compact = false }: FFAPric
           </div>
           <PriceChangeIndicator current={currentPrice} previous={previousPrice} />
         </div>
+        {allowToggle && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cycleState}
+            className="h-8 w-8 p-0 ml-2"
+            title={getToggleTitle()}
+          >
+            {getToggleIcon()}
+          </Button>
+        )}
       </div>
     );
   }
   
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-xl">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-xl">{ffa.contract}</CardTitle>
             <CardDescription>Forward Freight Agreement</CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">${currentPrice.toFixed(2)}</div>
-            <div className="text-sm text-muted-foreground">USD</div>
+          <div className="flex items-center space-x-3">
+            <div className="text-right">
+              <div className="text-2xl font-bold">${currentPrice.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">USD</div>
+            </div>
+            {allowToggle && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={cycleState}
+                className="h-8 w-8 p-0"
+                title={getToggleTitle()}
+              >
+                {getToggleIcon()}
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -235,7 +304,7 @@ export function FFAPriceCard({ ffa, showChart = true, compact = false }: FFAPric
             </div>
           </div>
           
-          {forward && showChart && (
+          {forward && currentState === 'full-with-chart' && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium mb-3">Forward Pricing (Next 12 Months)</h4>
               <div className="grid grid-cols-6 gap-2 text-xs mb-4">

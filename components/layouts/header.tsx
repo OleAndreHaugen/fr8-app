@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,6 +18,7 @@ import { LogOut, Settings, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MegaMenu } from "./mega-menu";
+import { ProfileEditDialog } from "@/components/profile-edit-dialog";
 
 interface HeaderProps {
   user?: {
@@ -28,6 +30,7 @@ export function Header({ user }: HeaderProps) {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -78,7 +81,7 @@ export function Header({ user }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsProfileDialogOpen(true)}>
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
@@ -94,6 +97,11 @@ export function Header({ user }: HeaderProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      
+      <ProfileEditDialog 
+        open={isProfileDialogOpen} 
+        onOpenChange={setIsProfileDialogOpen} 
+      />
     </header>
   );
 }

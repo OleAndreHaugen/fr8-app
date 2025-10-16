@@ -13,6 +13,7 @@
    - **Fourth:** `20241015000004_seed_fuel_codes_sample_data.sql` (optional)
    - **Fifth:** `20241015000005_create_ffa_table.sql`
    - **Sixth:** `20241015000006_seed_ffa_sample_data.sql` (optional)
+   - **Seventh:** `20241015000007_create_fuel_hist_table.sql`
 4. Click **Run** (or Ctrl+Enter) after pasting each one
 
 ### Option 2: Using Supabase CLI (Recommended for Production)
@@ -99,6 +100,19 @@ Adds sample FFA contracts:
 - C3_TC, C5_TC, C7_TC, C9_TC, C11_TC, C14_TC
 - Forward pricing data in JSON format with quarterly prices
 
+### 7. `20241015000007_create_fuel_hist_table.sql`
+Creates the `fuel_hist` table with:
+- ✅ UUID primary key
+- ✅ Product field (text) - Product name or location
+- ✅ Type field (text) - Type of fuel (VLSFO, MGO)
+- ✅ Price field (decimal 11,2) - Historical fuel price
+- ✅ Date field (text) - Date in YYYYMMDD format
+- ✅ Timestamps (created_at, updated_at)
+- ✅ Row Level Security (RLS) enabled
+- ✅ RLS policies for authenticated users
+- ✅ Indexes for performance (including composite index)
+- ✅ Auto-update trigger for updated_at
+
 ## After Running Migrations
 
 ### Verify the Tables
@@ -108,12 +122,13 @@ Adds sample FFA contracts:
 select * from public.fuel;
 select * from public.fuel_codes;
 select * from public.ffa;
+select * from public.fuel_hist;
 
 -- Check RLS policies
-select * from pg_policies where tablename in ('fuel', 'fuel_codes', 'ffa');
+select * from pg_policies where tablename in ('fuel', 'fuel_codes', 'ffa', 'fuel_hist');
 
 -- Check indexes
-select * from pg_indexes where tablename in ('fuel', 'fuel_codes', 'ffa');
+select * from pg_indexes where tablename in ('fuel', 'fuel_codes', 'ffa', 'fuel_hist');
 ```
 
 ### Update TypeScript Types (Already Done)
@@ -143,6 +158,14 @@ const { data: ffaData, error: ffaError } = await supabase
   .from('ffa')
   .select('*')
   .order('contract');
+
+// Fetch fuel history data
+const { data: fuelHistData, error: fuelHistError } = await supabase
+  .from('fuel_hist')
+  .select('*')
+  .eq('product', 'Rotterdam')
+  .eq('type', 'VLSFO')
+  .order('date', { ascending: false });
 ```
 
 ## Rolling Back
@@ -154,6 +177,7 @@ If you need to rollback:
 drop table if exists public.fuel cascade;
 drop table if exists public.fuel_codes cascade;
 drop table if exists public.ffa cascade;
+drop table if exists public.fuel_hist cascade;
 
 -- Drop the function (only if no other tables use it)
 drop function if exists public.handle_updated_at() cascade;

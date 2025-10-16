@@ -90,11 +90,6 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>© 2024 FR8 Portal. Built with Next.js and Supabase.</p>
-        </div>
-      </footer>
     </div>
   );
 }

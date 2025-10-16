@@ -97,6 +97,67 @@ export interface Database {
           updated_at?: string;
         };
       };
+      fuel_hist: {
+        Row: {
+          id: string;
+          product: string;
+          type: string;
+          price: number;
+          date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product: string;
+          type: string;
+          price: number;
+          date: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product?: string;
+          type?: string;
+          price?: number;
+          date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string | null;
+          title: string | null;
+          mobile: string | null;
+          country: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name?: string | null;
+          title?: string | null;
+          mobile?: string | null;
+          country?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string | null;
+          title?: string | null;
+          mobile?: string | null;
+          country?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

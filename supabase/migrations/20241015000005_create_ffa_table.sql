@@ -13,6 +13,14 @@ create table if not exists public.ffa (
 -- Enable Row Level Security
 alter table public.ffa enable row level security;
 
+-- Create RLS policies
+-- Policy: Allow authenticated users to read ffa data
+create policy "Allow authenticated users to read ffa data"
+  on public.ffa
+  for select
+  to authenticated
+  using (true);
+
 -- Create indexes for better query performance
 create index if not exists ffa_contract_idx on public.ffa(contract);
 

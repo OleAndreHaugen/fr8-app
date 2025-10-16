@@ -18,8 +18,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FuelPriceCard } from "@/components/fuel/fuel-price-card";
+import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 
 type FuelData = Database['public']['Tables']['fuel']['Row'];
+type CardState = 'compact' | 'full' | 'full-with-chart';
 
 interface MultiSelectFilterProps {
   label: string;
@@ -97,6 +99,7 @@ export default function FuelPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [globalCardState, setGlobalCardState] = useState<CardState>('full');
 
   useEffect(() => {
     async function fetchFuelData() {
@@ -105,9 +108,9 @@ export default function FuelPage() {
         
         const { data: fuels, error } = await supabase
           .from('fuel')
-          .select('*')
-          .order('type', { ascending: true })
-          .order('product', { ascending: true });
+          .select('*')          
+          .order('product', { ascending: true })
+          .order('type', { ascending: true });
 
         if (error) {
           console.error('Error fetching fuel data:', error);
@@ -125,6 +128,16 @@ export default function FuelPage() {
 
     fetchFuelData();
   }, []);
+
+  const handleStateChange = (value: string) => {
+    setGlobalCardState(value as CardState);
+  };
+
+  const toggleOptions = [
+    { value: 'compact', label: 'Compact' },
+    { value: 'full', label: 'Full' },
+    { value: 'full-with-chart', label: 'Charts' }
+  ];
 
   // Filter the data based on selected filters
   const filteredFuels = fuelsData.filter(fuel => {
@@ -204,21 +217,28 @@ export default function FuelPage() {
       </div>
 
       {/* Filters Section */}
-      <Card>
+      <Card className="rounded-xl">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Filters</CardTitle>
-            {(selectedTypes.length > 0 || selectedProducts.length > 0) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearAllFilters}
-                className="h-8"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear All
-              </Button>
-            )}
+            <div className="flex items-center space-x-3">
+              {(selectedTypes.length > 0 || selectedProducts.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-8"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear All
+                </Button>
+              )}
+              <SegmentedToggle
+                options={toggleOptions}
+                value={globalCardState}
+                onValueChange={handleStateChange}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -245,7 +265,14 @@ export default function FuelPage() {
       {/* Current Prices Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredFuels.map((fuel) => (
-          <FuelPriceCard key={fuel.id} fuel={fuel} />
+          <FuelPriceCard 
+            key={fuel.id} 
+            fuel={fuel} 
+            compact={false} 
+            showChart={false} 
+            allowToggle={false}
+            globalState={globalCardState}
+          />
         ))}
       </div>
 

@@ -11,8 +11,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useEffect, useState } from "react";
 import { FuelPriceCard } from "@/components/fuel/fuel-price-card";
+import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 
 type FuelData = Database['public']['Tables']['fuel']['Row'];
+type CardState = 'compact' | 'full' | 'full-with-chart';
 
 // Specific locations and fuel types from the image
 const DASHBOARD_FUEL_LOCATIONS = [
@@ -26,6 +28,7 @@ const DASHBOARD_FUEL_LOCATIONS = [
 export function DashboardFuelSection() {
   const [fuelsData, setFuelsData] = useState<FuelData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [globalCardState, setGlobalCardState] = useState<CardState>('full');
 
   useEffect(() => {
     async function fetchFuelData() {
@@ -34,9 +37,9 @@ export function DashboardFuelSection() {
         
         const { data: fuels, error } = await supabase
           .from('fuel')
-          .select('*')
-          .order('type', { ascending: true })
-          .order('product', { ascending: true });
+          .select('*')          
+          .order('product', { ascending: true })
+          .order('type', { ascending: true });
 
         if (error) {
           console.error('Error fetching fuel data:', error);
@@ -60,13 +63,23 @@ export function DashboardFuelSection() {
     fetchFuelData();
   }, []);
 
+  const handleStateChange = (value: string) => {
+    setGlobalCardState(value as CardState);
+  };
+
+  const toggleOptions = [
+    { value: 'compact', label: 'Compact' },
+    { value: 'full', label: 'Full' },
+    { value: 'full-with-chart', label: 'Charts' }
+  ];
+
   if (loading) {
     return (
       <div className="space-y-4">
-        <Card>
+        <Card className="rounded-xl">
           <CardHeader>
-            <CardTitle>FUEL</CardTitle>
-            <CardDescription>Fuel Forward Prices in USD</CardDescription>
+            <CardTitle className="text-blue-900">FUEL</CardTitle>
+            <CardDescription className="text-blue-700">Fuel Forward Prices in USD</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -80,24 +93,31 @@ export function DashboardFuelSection() {
     );
   }
 
-  // Calculate some stats for the header
-  const totalProducts = fuelsData.length;
-  const uniqueTypes = new Set(fuelsData.map(f => f.type)).size;
-  const avgPrice = fuelsData.length > 0 
-    ? (fuelsData.reduce((sum, f) => sum + f.price, 0) / fuelsData.length).toFixed(2)
-    : '0.00';
 
   return (
     <div className="space-y-4">
       {/* Header Card */}
-      <Card>
+      <Card className="rounded-xl">
         <CardHeader>
-          <CardTitle>FUEL</CardTitle>
-          <CardDescription>Fuel Forward Prices in USD</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>FUEL</CardTitle>
+              <CardDescription>Fuel Forward Prices in USD</CardDescription>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span>
+              </span>
+              <SegmentedToggle
+                options={toggleOptions}
+                value={globalCardState}
+                onValueChange={handleStateChange}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mt-0 pt-4 border-t">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm">
               Showing fuel prices for key bunker locations: Antwerp, Fujairah, Gibraltar, Rotterdam, and Singapore. 
               Prices include VLSFO and MGO fuel types with current rates and 12-month forward pricing trends.
             </p>
@@ -108,7 +128,14 @@ export function DashboardFuelSection() {
       {/* Fuel Cards Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {fuelsData.map((fuel) => (
-          <FuelPriceCard key={fuel.id} fuel={fuel} compact={false} showChart={false} />
+          <FuelPriceCard 
+            key={fuel.id} 
+            fuel={fuel} 
+            compact={false} 
+            showChart={false} 
+            allowToggle={false}
+            globalState={globalCardState}
+          />
         ))}
       </div>
     </div>

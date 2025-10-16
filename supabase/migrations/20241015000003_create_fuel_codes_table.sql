@@ -22,28 +22,6 @@ create policy "Allow authenticated users to read fuel codes"
   to authenticated
   using (true);
 
--- Policy: Allow authenticated users to insert fuel codes
-create policy "Allow authenticated users to insert fuel codes"
-  on public.fuel_codes
-  for insert
-  to authenticated
-  with check (true);
-
--- Policy: Allow authenticated users to update fuel codes
-create policy "Allow authenticated users to update fuel codes"
-  on public.fuel_codes
-  for update
-  to authenticated
-  using (true)
-  with check (true);
-
--- Policy: Allow authenticated users to delete fuel codes
-create policy "Allow authenticated users to delete fuel codes"
-  on public.fuel_codes
-  for delete
-  to authenticated
-  using (true);
-
 -- Create indexes for better query performance
 create index if not exists fuel_codes_code_idx on public.fuel_codes(code);
 create index if not exists fuel_codes_port_idx on public.fuel_codes(port);
