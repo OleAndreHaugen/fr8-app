@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Settings, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { MegaMenu } from "./mega-menu";
 
 interface HeaderProps {
   user?: {
@@ -43,10 +46,22 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-      <div className="flex-1">
-        <h2 className="font-semibold text-lg">Piering Ship Owners, Traders, Charterers and Brokers</h2>
+      <div className="flex items-center gap-6">
+        <MegaMenu />
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <Image
+            src="/512_blaa.png"
+            alt="FR8 Logo"
+            width={48}
+            height={48}
+          />          
+        </Link>
+   
       </div>
       <div className="flex items-center gap-4">
+        <h2 className="font-semibold text-lg hidden lg:block">
+          Piering Ship Owners, Traders, Charterers and Brokers
+        </h2>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">

@@ -74,6 +74,29 @@ export interface Database {
           updated_at?: string;
         };
       };
+      ffa: {
+        Row: {
+          id: string;
+          contract: string;
+          forward: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contract: string;
+          forward?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contract?: string;
+          forward?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

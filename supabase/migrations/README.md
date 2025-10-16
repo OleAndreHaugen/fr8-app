@@ -11,6 +11,8 @@
    - **Second:** `20241015000001_create_fuel_table.sql`
    - **Third:** `20241015000003_create_fuel_codes_table.sql`
    - **Fourth:** `20241015000004_seed_fuel_codes_sample_data.sql` (optional)
+   - **Fifth:** `20241015000005_create_ffa_table.sql`
+   - **Sixth:** `20241015000006_seed_ffa_sample_data.sql` (optional)
 4. Click **Run** (or Ctrl+Enter) after pasting each one
 
 ### Option 2: Using Supabase CLI (Recommended for Production)
@@ -82,20 +84,36 @@ Adds sample fuel codes:
 - ROT (Rotterdam), SIN (Singapore), HOU (Houston)
 - LOS (Los Angeles), HAM (Hamburg), DUB (Dubai), HKG (Hong Kong)
 
+### 5. `20241015000005_create_ffa_table.sql`
+Creates the `ffa` table with:
+- ✅ UUID primary key
+- ✅ Contract field (text) - Contract identifier
+- ✅ Forward field (jsonb) - Forward pricing data
+- ✅ Timestamps (created_at, updated_at)
+- ✅ Row Level Security (RLS) enabled
+- ✅ Indexes for performance
+- ✅ Auto-update trigger for updated_at
+
+### 6. `20241015000006_seed_ffa_sample_data.sql`
+Adds sample FFA contracts:
+- C3_TC, C5_TC, C7_TC, C9_TC, C11_TC, C14_TC
+- Forward pricing data in JSON format with quarterly prices
+
 ## After Running Migrations
 
 ### Verify the Tables
 
 ```sql
 -- Check if tables exist
-select * from public.fr8_fuel;
+select * from public.fuel;
 select * from public.fuel_codes;
+select * from public.ffa;
 
 -- Check RLS policies
-select * from pg_policies where tablename in ('fr8_fuel', 'fuel_codes');
+select * from pg_policies where tablename in ('fuel', 'fuel_codes', 'ffa');
 
 -- Check indexes
-select * from pg_indexes where tablename in ('fr8_fuel', 'fuel_codes');
+select * from pg_indexes where tablename in ('fuel', 'fuel_codes', 'ffa');
 ```
 
 ### Update TypeScript Types (Already Done)
@@ -119,6 +137,12 @@ const { data: codes, error: codesError } = await supabase
   .from('fuel_codes')
   .select('*')
   .order('code');
+
+// Fetch FFA data
+const { data: ffaData, error: ffaError } = await supabase
+  .from('ffa')
+  .select('*')
+  .order('contract');
 ```
 
 ## Rolling Back
@@ -127,8 +151,9 @@ If you need to rollback:
 
 ```sql
 -- Drop the tables
-drop table if exists public.fr8_fuel cascade;
+drop table if exists public.fuel cascade;
 drop table if exists public.fuel_codes cascade;
+drop table if exists public.ffa cascade;
 
 -- Drop the function (only if no other tables use it)
 drop function if exists public.handle_updated_at() cascade;

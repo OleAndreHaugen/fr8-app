@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/card";
 import { Calculator, TrendingUp, Users, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DashboardFuelSection } from "@/components/dashboard/fuel-section";
+import { DashboardFFASection } from "@/components/dashboard/ffa-section";
 
 export default function DashboardPage() {
   const stats = [
@@ -83,29 +85,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>FUEL</CardTitle>
-            <CardDescription>Fuel Forward Prices in USD</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              Fuel pricing data will be displayed here
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>FFA</CardTitle>
-            <CardDescription>Average FFA prices in USD</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              FFA pricing data will be displayed here
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardFuelSection />
+        <DashboardFFASection />
 
         <Card>
           <CardHeader>

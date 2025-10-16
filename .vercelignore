@@ -2,4 +2,4 @@
 *.md
 .env.example
 .env.local.example
-
+/supabase
