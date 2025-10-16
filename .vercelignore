@@ -1,0 +1,6 @@
+# Vercel ignore
+supabase/
+*.md
+.env.example
+.env.local.example
+

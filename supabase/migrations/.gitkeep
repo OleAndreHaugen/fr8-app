@@ -1,0 +1,3 @@
+# Database migrations go here
+# Create migrations with: supabase migration new migration_name
+
