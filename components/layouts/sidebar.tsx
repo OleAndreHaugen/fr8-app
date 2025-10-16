@@ -15,9 +15,6 @@ import {
   Users,
   BookOpen,
   Award,
-  Box,
-  Settings,
-  BarChart3,
 } from "lucide-react";
 
 const navigation = [
