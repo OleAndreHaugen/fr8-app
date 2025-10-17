@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -20,9 +20,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import { PortsDialog } from "@/components/ui/ports-dialog";
+import {
   ArrowLeft,
-  ChevronDown, 
+  ChevronDown,
   ChevronUp,
   Copy,
   Calculator,
@@ -30,15 +31,35 @@ import {
   MapPin,
   Calendar,
   Save,
-  X
+  X,
+  FileText,
+  Search
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { Database } from "@/types/database";
+import { calculateFreightRate } from "@/lib/freight-calculator";
 
 type RouteData = Database['public']['Tables']['routes']['Insert'];
 
 interface FormData {
+  rate: number;
+
+  rates: {
+    rate0: number;
+    rate1: number;
+    rate2: number;
+    rate3: number;
+    rate4: number;
+    rate5: number;
+    rate6: number;
+    rate7: number;
+    rate8: number;
+    rate9: number;
+    rate10: number;
+    rate11: number;
+  };
+
   // General Section
   customer: string;
   route: string;
@@ -47,9 +68,9 @@ interface FormData {
   intake: string;
   totalDuration: string;
   bunkerPort: string;
-  delivery: string;
+  difference: string;
   fob: string;
-  
+
   // Port Section
   loadPort: string;
   dischargePort: string;
@@ -57,7 +78,7 @@ interface FormData {
   dischargeRate: string;
   loadTerms: string;
   dischargeTerms: string;
-  
+
   // Calculation Section
   totalVlsfoConsumption: string;
   totalLsmgoConsumption: string;
@@ -65,7 +86,7 @@ interface FormData {
   totalMisc: string;
   commission: string;
   addressCommission: string;
-  
+
   // Seasonal Differences
   seasonalDifferences: {
     jan: { value: string; unit: string };
@@ -98,11 +119,29 @@ const MONTHS = [
   { key: 'dec', label: 'December' },
 ];
 
-const TERMS_OPTIONS = ['FOB', 'CIF', 'CFR', 'EXW', 'FAS', 'DAP', 'DDP'];
+const TERMS_OPTIONS = ['daps', 'fhinc', 'fshex', 'hours', 'satpm', 'satsx', 'shex', 'shinc', 'sshex', 'Thurs12/Sun0800'];
 
 export default function NewCalculationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const routeId = searchParams.get('id');
+  const isEditMode = !!routeId;
   const [formData, setFormData] = useState<FormData>({
+    rate: 0,
+    rates: {
+      rate0: 0,
+      rate1: 0,
+      rate2: 0,
+      rate3: 0,
+      rate4: 0,
+      rate5: 0,
+      rate6: 0,
+      rate7: 0,
+      rate8: 0,
+      rate9: 0,
+      rate10: 0,
+      rate11: 0,
+    },
     customer: '',
     route: '',
     stemSize: '',
@@ -110,7 +149,7 @@ export default function NewCalculationPage() {
     intake: '',
     totalDuration: '',
     bunkerPort: '',
-    delivery: '',
+    difference: '',
     fob: '',
     loadPort: '',
     dischargePort: '',
@@ -143,44 +182,386 @@ export default function NewCalculationPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [seasonalExpanded, setSeasonalExpanded] = useState(false);
-  
+  const [calculationLoading, setCalculationLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(isEditMode);
+  const [ffaContracts, setFfaContracts] = useState<string[]>([]);
+  const [routeSearchTerm, setRouteSearchTerm] = useState('');
+  const [showRouteDropdown, setShowRouteDropdown] = useState(false);
+  const [fuelNames, setFuelNames] = useState<string[]>([]);
+  const [bunkerSearchTerm, setBunkerSearchTerm] = useState('');
+  const [showBunkerDropdown, setShowBunkerDropdown] = useState(false);
+  const [showLoadPortDialog, setShowLoadPortDialog] = useState(false);
+  const [showDischargePortDialog, setShowDischargePortDialog] = useState(false);
+  const [selectedLoadPort, setSelectedLoadPort] = useState<{ id: string; name: string; country: string } | null>(null);
+  const [selectedDischargePort, setSelectedDischargePort] = useState<{ id: string; name: string; country: string } | null>(null);
+
+  // Request deduplication
+  const [isLoadingFfa, setIsLoadingFfa] = useState(false);
+  const [isLoadingFuel, setIsLoadingFuel] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+
   const { profile } = useUserProfile();
 
-  // Calculate freight rate summary
-  const calculateFreightRate = () => {
-    const loadRate = parseFloat(formData.loadRate) || 0;
-    const dischargeRate = parseFloat(formData.dischargeRate) || 0;
-    const vlsfoCost = parseFloat(formData.totalVlsfoConsumption) || 0;
-    const lsmgoCost = parseFloat(formData.totalLsmgoConsumption) || 0;
-    const pdaCost = parseFloat(formData.totalPda) || 0;
-    const miscCost = parseFloat(formData.totalMisc) || 0;
-    
-    const totalCost = vlsfoCost + lsmgoCost + pdaCost + miscCost;
-    const freightRate = loadRate + dischargeRate + totalCost;
-    
-    return {
-      freightRate,
-      vlsfoCost,
-      lsmgoCost,
-      pdaCost,
-      miscCost,
-      totalCost
-    };
+  // Fetch FFA contracts
+  const fetchFfaContracts = async () => {
+    if (isLoadingFfa || ffaContracts.length > 0) return; // Skip if already loading or loaded
+
+    setIsLoadingFfa(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('ffa')
+        .select('contract')
+        .order('contract');
+
+      if (error) throw error;
+
+      const contracts = data?.map(item => item.contract) || [];
+      setFfaContracts(contracts);
+    } catch (error) {
+      console.error('Error fetching FFA contracts:', error);
+    } finally {
+      setIsLoadingFfa(false);
+    }
   };
 
-  const freightCalculation = calculateFreightRate();
+  // Fetch fuel names
+  const fetchFuelNames = async () => {
+    if (isLoadingFuel || fuelNames.length > 0) return; // Skip if already loading or loaded
+
+    setIsLoadingFuel(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('fuel')
+        .select('product')
+        .order('product');
+
+      if (error) throw error;
+
+      // Get unique product values
+      const uniqueProducts = [...new Set(data?.map(item => item.product) || [])];
+      setFuelNames(uniqueProducts);
+    } catch (error) {
+      console.error('Error fetching fuel names:', error);
+    } finally {
+      setIsLoadingFuel(false);
+    }
+  };
+
+  // Fetch port data by ID - DEPRECATED: Ports now stored as names
+  // const fetchPortById = async (portId: string) => {
+  //   // This function is no longer needed since we store port names directly
+  // };
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (isEditMode && routeId) {
+        // In edit mode, load everything together
+        await Promise.all([
+          fetchFfaContracts(),
+          fetchFuelNames()
+        ]);
+
+        // Then load route data
+        await loadRouteData();
+      } else {
+        // In create mode, just load dropdown data
+        await Promise.all([
+          fetchFfaContracts(),
+          fetchFuelNames()
+        ]);
+      }
+    };
+
+    loadInitialData();
+  }, [isEditMode, routeId]);
+
+  // Load existing route data if in edit mode
+  const loadRouteData = async () => {
+    if (!routeId) return;
+
+    try {
+      const supabase = createClient();
+      const { data: routeData, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('id', routeId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching route data:', error);
+        setErrors({ submit: 'Failed to load calculation data' });
+        return;
+      }
+
+      if (routeData) {
+        // Ports are now stored as names, not IDs
+        // Set selected ports if we have port names
+        if (routeData.port_load) {
+          setSelectedLoadPort({
+            id: '', // No longer needed
+            name: routeData.port_load,
+            country: '' // We don't have country info from the route data
+          });
+        }
+
+        if (routeData.port_disch) {
+          setSelectedDischargePort({
+            id: '', // No longer needed
+            name: routeData.port_disch,
+            country: '' // We don't have country info from the route data
+          });
+        }
+
+        // Populate form data
+        setFormData({
+          rate: routeData.rate || 0,
+          rates: routeData.rates || {},
+          customer: routeData.customer || '',
+          route: routeData.route || '',
+          stemSize: routeData.stemsize?.toString() || '',
+          intakeTolerance: routeData.intake_tolerance || '10%',
+          intake: routeData.intake?.toString() || '',
+          totalDuration: routeData.duration?.toString() || '',
+          bunkerPort: routeData.fuel || '',
+          difference: routeData.difference?.toString() || '',
+          fob: routeData.fobid || '',
+          loadPort: routeData.port_load || '',
+          dischargePort: routeData.port_disch || '',
+          loadRate: routeData.rate_load?.toString() || '',
+          dischargeRate: routeData.rate_disch?.toString() || '',
+          loadTerms: routeData.terms_load || '',
+          dischargeTerms: routeData.terms_disch || '',
+          totalVlsfoConsumption: routeData.total_vlsfo?.toString() || '',
+          totalLsmgoConsumption: routeData.total_lsmgo?.toString() || '',
+          totalPda: routeData.total_pda?.toString() || '',
+          totalMisc: routeData.total_misc?.toString() || '',
+          commission: routeData.commission?.toString() || '',
+          addressCommission: routeData.commission_adress?.toString() || '',
+          seasonalDifferences: {
+            jan: { value: routeData.diff_jan?.toString() || '', unit: routeData.diff_jan_unit || 'USD' },
+            feb: { value: routeData.diff_feb?.toString() || '', unit: routeData.diff_feb_unit || 'USD' },
+            mar: { value: routeData.diff_mar?.toString() || '', unit: routeData.diff_mar_unit || 'USD' },
+            apr: { value: routeData.diff_apr?.toString() || '', unit: routeData.diff_apr_unit || 'USD' },
+            may: { value: routeData.diff_may?.toString() || '', unit: routeData.diff_may_unit || 'USD' },
+            jun: { value: routeData.diff_jun?.toString() || '', unit: routeData.diff_jun_unit || 'USD' },
+            jul: { value: routeData.diff_jul?.toString() || '', unit: routeData.diff_jul_unit || 'USD' },
+            aug: { value: routeData.diff_aug?.toString() || '', unit: routeData.diff_aug_unit || 'USD' },
+            sep: { value: routeData.diff_sep?.toString() || '', unit: routeData.diff_sep_unit || 'USD' },
+            oct: { value: routeData.diff_oct?.toString() || '', unit: routeData.diff_oct_unit || 'USD' },
+            nov: { value: routeData.diff_nov?.toString() || '', unit: routeData.diff_nov_unit || 'USD' },
+            dec: { value: routeData.diff_dec?.toString() || '', unit: routeData.diff_dec_unit || 'USD' },
+          },
+        });
+
+        // Set search terms for dropdowns
+        setRouteSearchTerm(routeData.route || '');
+        setBunkerSearchTerm(routeData.fuel || '');
+
+      }
+    } catch (error) {
+      console.error('Error loading route data:', error);
+      setErrors({ submit: 'Failed to load calculation data' });
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.route-dropdown-container')) {
+        setShowRouteDropdown(false);
+      }
+      if (!target.closest('.bunker-dropdown-container')) {
+        setShowBunkerDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Calculate freight rate using API - only for new calculations or when user actively edits
+  useEffect(() => {
+    const performCalculation = async () => {
+      // Only calculate if we have the required fields
+      if (!formData.totalDuration ||
+        !formData.route ||
+        !formData.bunkerPort) {
+        return;
+      }
+
+      // Skip if already calculating
+      if (isCalculating) return;
+
+      // Skip calculation if we're in edit mode and still loading initial data
+      if (isEditMode && initialLoading) return;
+
+      setIsCalculating(true);
+      setCalculationLoading(true);
+
+      try {
+        const routeData = {
+          total_vlsfo: parseFloat(formData.totalVlsfoConsumption),
+          total_lsmgo: parseFloat(formData.totalLsmgoConsumption),
+          total_pda: parseFloat(formData.totalPda),
+          total_misc: parseFloat(formData.totalMisc),
+          intake: parseFloat(formData.intake),
+          stemsize: parseFloat(formData.stemSize),
+          duration: parseFloat(formData.totalDuration),
+          route: formData.route,
+          fuel: formData.bunkerPort,
+          difference: parseFloat(formData.difference),
+          commission: parseFloat(formData.commission),
+          commission_adress: parseFloat(formData.addressCommission),
+          calcMonth: null,
+        };
+
+        console.log(routeData);
+
+        const result = await calculateFreightRate(routeData);
+        formData.rate = result.freightRate;
+      } catch (error) {
+        console.error('Calculation error:', error);
+        // Keep existing values on error
+      } finally {
+        setCalculationLoading(false);
+        setIsCalculating(false);
+      }
+    };
+
+    // Debounce the calculation
+    const timeoutId = setTimeout(performCalculation, 500);
+    return () => clearTimeout(timeoutId);
+  }, [
+    formData.loadRate,
+    formData.dischargeRate,
+    formData.totalVlsfoConsumption,
+    formData.totalLsmgoConsumption,
+    formData.totalPda,
+    formData.totalMisc,
+    formData.intake,
+    formData.stemSize,
+    formData.totalDuration,
+    formData.route,
+    formData.bunkerPort,
+    formData.difference,
+    formData.commission,
+    formData.addressCommission,
+  ]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
         [field]: ''
+      }));
+    }
+  };
+
+  // Handle route search and selection
+  const handleRouteSearch = (value: string) => {
+    setRouteSearchTerm(value);
+    setShowRouteDropdown(true);
+  };
+
+  const handleRouteSelect = (contract: string) => {
+    setFormData(prev => ({
+      ...prev,
+      route: contract
+    }));
+    setRouteSearchTerm(contract);
+    setShowRouteDropdown(false);
+
+    // Clear error when user selects
+    if (errors.route) {
+      setErrors(prev => ({
+        ...prev,
+        route: ''
+      }));
+    }
+  };
+
+  // Filter contracts based on search term
+  const filteredContracts = ffaContracts.filter(contract =>
+    contract.toLowerCase().includes(routeSearchTerm.toLowerCase())
+  );
+
+  // If search term is empty or matches exactly, show all contracts
+  const displayContracts = routeSearchTerm === '' ? ffaContracts : filteredContracts;
+
+  // Handle bunker port search and selection
+  const handleBunkerSearch = (value: string) => {
+    setBunkerSearchTerm(value);
+    setShowBunkerDropdown(true);
+  };
+
+  const handleBunkerSelect = (name: string) => {
+    setFormData(prev => ({
+      ...prev,
+      bunkerPort: name
+    }));
+    setBunkerSearchTerm(name);
+    setShowBunkerDropdown(false);
+
+    // Clear error when user selects
+    if (errors.bunkerPort) {
+      setErrors(prev => ({
+        ...prev,
+        bunkerPort: ''
+      }));
+    }
+  };
+
+  // Filter fuel names based on search term
+  const filteredFuelNames = fuelNames.filter(name =>
+    name.toLowerCase().includes(bunkerSearchTerm.toLowerCase())
+  );
+
+  // If search term is empty or matches exactly, show all fuel names
+  const displayFuelNames = bunkerSearchTerm === '' ? fuelNames : filteredFuelNames;
+
+  // Handle port selection
+  const handleLoadPortSelect = (port: { id: string; name: string; country: string }) => {
+    setSelectedLoadPort(port);
+    setFormData(prev => ({
+      ...prev,
+      loadPort: port.name
+    }));
+
+    // Clear error when user selects
+    if (errors.loadPort) {
+      setErrors(prev => ({
+        ...prev,
+        loadPort: ''
+      }));
+    }
+  };
+
+  const handleDischargePortSelect = (port: { id: string; name: string; country: string }) => {
+    setSelectedDischargePort(port);
+    setFormData(prev => ({
+      ...prev,
+      dischargePort: port.name
+    }));
+
+    // Clear error when user selects
+    if (errors.dischargePort) {
+      setErrors(prev => ({
+        ...prev,
+        dischargePort: ''
       }));
     }
   };
@@ -205,9 +586,33 @@ export default function NewCalculationPage() {
     }));
   };
 
+  // Construct system name with proper calculations
+  const constructSysName = () => {
+    const stemSize = parseInt(formData.stemSize) / 1000 || '';
+    const intakeTolerance = formData.intakeTolerance || '';
+    const loadPortName = selectedLoadPort?.name || formData.loadPort || '';
+    const dischargePortName = selectedDischargePort?.name || formData.dischargePort || '';
+    const intake = formData.intake || '';
+    const commission = formData.commission || '0';
+    const addressCommission = formData.addressCommission || '0';
+    const loadRate = parseFloat(formData.loadRate) || 0;
+    const dischargeRate = parseFloat(formData.dischargeRate) || 0;
+
+    // Format commission values
+    const commissionValue = parseFloat(commission) || 0;
+    const addressCommissionValue = parseFloat(addressCommission) || 0;
+
+    // Construct the system name with proper formatting
+    const sysName = `${stemSize}' ${intakeTolerance} ${loadPortName}-${dischargePortName} ${loadRate} satpm / ${dischargeRate} satpm ${addressCommissionValue}%+${commissionValue}%`;
+
+    console.log(sysName);
+
+    return sysName;
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     // Required fields validation
     const requiredFields = [
       'customer', 'route', 'stemSize', 'intake', 'totalDuration',
@@ -215,56 +620,82 @@ export default function NewCalculationPage() {
       'loadTerms', 'dischargeTerms', 'totalVlsfoConsumption', 'totalLsmgoConsumption',
       'totalPda', 'totalMisc'
     ];
-    
+
     requiredFields.forEach(field => {
       if (!formData[field as keyof FormData]) {
         newErrors[field] = 'This field is required';
       }
     });
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    
+
     setLoading(true);
     try {
+      // Calculate freight rate before saving
+      if (formData.totalDuration && formData.bunkerPort && formData.route) {
+        try {
+          const routeData = {
+            total_vlsfo: parseFloat(formData.totalVlsfoConsumption),
+            total_lsmgo: parseFloat(formData.totalLsmgoConsumption),
+            total_pda: parseFloat(formData.totalPda),
+            total_misc: parseFloat(formData.totalMisc),
+            intake: parseFloat(formData.intake),
+            stemsize: parseFloat(formData.stemSize),
+            duration: parseFloat(formData.totalDuration),
+            route: formData.route,
+            fuel: formData.bunkerPort,
+            difference: parseFloat(formData.difference),
+            commission: parseFloat(formData.commission),
+            commission_adress: parseFloat(formData.addressCommission),
+            calcMonth: null,
+          };
+
+          const result = await calculateFreightRate(routeData, true);
+          formData.rate = result.freightRate;
+          formData.rates = result.freightRates;
+        } catch (error) {
+          console.error('Calculation error during save:', error);
+          // Continue with existing freight rate if calculation fails
+        }
+      }
+
       const supabase = createClient();
-      
+
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-      
+
       // Prepare route data for insertion
       const routeData: RouteData = {
-        name: `${formData.customer} - ${formData.route}`,
         account_id: profile?.account_id || null,
         customer: formData.customer,
         route: formData.route,
+        difference: parseFloat(formData.difference) || null,
         port_load: formData.loadPort,
         port_disch: formData.dischargePort,
         terms_load: formData.loadTerms,
         terms_disch: formData.dischargeTerms,
         rate_load: parseFloat(formData.loadRate) || null,
         rate_disch: parseFloat(formData.dischargeRate) || null,
-        difference: parseFloat(formData.dischargeRate) - parseFloat(formData.loadRate) || null,
         duration: parseFloat(formData.totalDuration) || null,
         total_vlsfo: parseFloat(formData.totalVlsfoConsumption) || null,
         total_lsmgo: parseFloat(formData.totalLsmgoConsumption) || null,
         total_pda: parseFloat(formData.totalPda) || null,
         total_misc: parseFloat(formData.totalMisc) || null,
-        comission: parseFloat(formData.commission) || null,
-        comission_adress: parseFloat(formData.addressCommission) || null,
+        commission: parseFloat(formData.commission) || null,
+        commission_adress: parseFloat(formData.addressCommission) || null,
         intake: parseFloat(formData.intake) || null,
         intake_tolerance: formData.intakeTolerance,
-        rate: freightCalculation.freightRate,
-        fuel: 'Mixed',
+        rate: formData.rate,
+        fuel: formData.bunkerPort,
         terms: `${formData.loadTerms} / ${formData.dischargeTerms}`,
         stemsize: parseFloat(formData.stemSize) || null,
-        sys_name: `${formData.stemSize}' ${formData.intakeTolerance} ${formData.loadPort}-${formData.dischargePort} ${formData.intake} satpm / ${formData.intake} satpm ${formData.commission}%+${formData.addressCommission}%`,
-        savedBy: user.email || 'Unknown',
+        sys_name: constructSysName(),
         active: true,
         // Seasonal differences
         diff_jan: parseFloat(formData.seasonalDifferences.jan.value) || null,
@@ -292,30 +723,76 @@ export default function NewCalculationPage() {
         diff_nov_unit: formData.seasonalDifferences.nov.unit,
         diff_dec_unit: formData.seasonalDifferences.dec.unit,
         fobid: formData.fob,
+        rates: formData.rates,
       };
-      
-      const { error } = await supabase
-        .from('routes')
-        .insert(routeData);
-      
+
+      let error;
+      if (isEditMode) {
+        // Update existing route
+        const { error: updateError } = await supabase
+          .from('routes')
+          .update(routeData)
+          .eq('id', routeId);
+        error = updateError;
+      } else {
+        // Insert new route
+        const { error: insertError } = await supabase
+          .from('routes')
+          .insert(routeData);
+        error = insertError;
+      }
+
       if (error) throw error;
-      
+
       // Navigate back to calculations page
       router.push('/dashboard/calculations');
-      
+
     } catch (error) {
-      console.error('Error creating calculation:', error);
-      setErrors({ submit: 'Failed to create calculation. Please try again.' });
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} calculation:`, error);
+      setErrors({ submit: `Failed to ${isEditMode ? 'update' : 'create'} calculation. Please try again.` });
     } finally {
       setLoading(false);
     }
   };
 
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-10 w-full">
+        <div className="bg-white border-b sticky top-0 z-10">
+          <div className="mx-auto px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.back()}
+                  className="flex items-center"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Loading...</h1>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="w-full mx-auto px-6 lg:px-8 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-10 w-full">
       {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <Button
@@ -328,9 +805,16 @@ export default function NewCalculationPage() {
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">New Calculation</h1>
-                <p className="text-sm text-gray-600">Create a new freight calculation</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {isEditMode ? 'Edit Calculation' : 'New Calculation'}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {isEditMode ? 'Edit existing freight calculation' : 'Create a new freight calculation'}
+                </p>
               </div>
+            </div>
+            <div className="text-sm text-gray-600">
+              Freight Rate: {formData.rate.toFixed(2)} USD
             </div>
             <div className="flex items-center space-x-3">
               <Button
@@ -343,7 +827,7 @@ export default function NewCalculationPage() {
               </Button>
               <Button onClick={handleSubmit} disabled={loading}>
                 <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Saving...' : 'Save Calculation'}
+                {loading ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save')}
               </Button>
             </div>
           </div>
@@ -351,71 +835,24 @@ export default function NewCalculationPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full mx-auto px-6 lg:px-8 py-8">
         <div className="space-y-8">
-          {/* Freight Rate Summary - Fixed Position */}
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 sticky top-4 z-10">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl flex items-center">
-                <Calculator className="h-6 w-6 mr-3" />
-                Freight Rate Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">Freight Rate</div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    ${freightCalculation.freightRate.toFixed(2)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground flex items-center justify-center mb-2">
-                    <Fuel className="h-4 w-4 mr-1" />
-                    VLSFO
-                  </div>
-                  <div className="text-xl font-semibold text-red-600">
-                    ${freightCalculation.vlsfoCost.toFixed(0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground flex items-center justify-center mb-2">
-                    <Fuel className="h-4 w-4 mr-1" />
-                    LSMGO
-                  </div>
-                  <div className="text-xl font-semibold text-red-600">
-                    ${freightCalculation.lsmgoCost.toFixed(0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">PDA</div>
-                  <div className="text-xl font-semibold text-orange-600">
-                    ${freightCalculation.pdaCost.toFixed(0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">Total Cost</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    ${freightCalculation.totalCost.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Form Sections */}
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="info" className="text-base py-3">General Information</TabsTrigger>
-              <TabsTrigger value="terms" className="text-base py-3">Terms & Conditions</TabsTrigger>
-              <TabsTrigger value="attachment" className="text-base py-3">Attachments</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-8 h-12 p-0 bg-secondary">
+              <TabsTrigger value="info" className="text-base py-3 px-6">General Information</TabsTrigger>
+              <TabsTrigger value="terms" className="text-base py-3 px-6">Terms & Conditions</TabsTrigger>
+              <TabsTrigger value="attachment" className="text-base py-3 px-6">Attachments</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-8">
               {/* General Section */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl">General Information</CardTitle>
+                  <CardTitle className="text-xl flex items-center">
+                    <FileText className="h-6 w-6 mr-3" />
+                    General Information
+                  </CardTitle>
                   <CardDescription>
                     Basic details about the freight calculation
                   </CardDescription>
@@ -442,15 +879,37 @@ export default function NewCalculationPage() {
                         <Label htmlFor="route" className="text-base font-medium">
                           Route <span className="text-red-500">*</span>
                         </Label>
-                        <div className="relative mt-2">
+                        <div className="relative mt-2 route-dropdown-container">
                           <Input
                             id="route"
-                            value={formData.route}
-                            onChange={(e) => handleInputChange('route', e.target.value)}
+                            value={routeSearchTerm}
+                            onChange={(e) => handleRouteSearch(e.target.value)}
+                            onFocus={() => setShowRouteDropdown(true)}
                             className={`h-12 text-base ${errors.route ? 'border-red-500' : ''}`}
-                            placeholder="Enter route"
+                            placeholder="Search and select route"
                           />
                           <ChevronDown className="absolute right-3 top-4 h-5 w-5 text-muted-foreground" />
+
+                          {/* Dropdown */}
+                          {showRouteDropdown && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {displayContracts.length > 0 ? (
+                                displayContracts.map((contract) => (
+                                  <div
+                                    key={contract}
+                                    className="px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
+                                    onClick={() => handleRouteSelect(contract)}
+                                  >
+                                    {contract}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-4 py-3 text-sm text-gray-500">
+                                  No contracts found
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {errors.route && (
                           <p className="text-sm text-red-500 mt-1">{errors.route}</p>
@@ -462,6 +921,7 @@ export default function NewCalculationPage() {
                         </Label>
                         <Input
                           id="stemSize"
+                          type="number"
                           value={formData.stemSize}
                           onChange={(e) => handleInputChange('stemSize', e.target.value)}
                           className={`mt-2 h-12 text-base ${errors.stemSize ? 'border-red-500' : ''}`}
@@ -488,8 +948,7 @@ export default function NewCalculationPage() {
                           <SelectContent>
                             <SelectItem value="5%">5%</SelectItem>
                             <SelectItem value="10%">10%</SelectItem>
-                            <SelectItem value="15%">15%</SelectItem>
-                            <SelectItem value="20%">20%</SelectItem>
+                            <SelectItem value="minmax">Min/Max</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -499,6 +958,7 @@ export default function NewCalculationPage() {
                         </Label>
                         <Input
                           id="intake"
+                          type="number"
                           value={formData.intake}
                           onChange={(e) => handleInputChange('intake', e.target.value)}
                           className={`mt-2 h-12 text-base ${errors.intake ? 'border-red-500' : ''}`}
@@ -514,6 +974,7 @@ export default function NewCalculationPage() {
                         </Label>
                         <Input
                           id="totalDuration"
+                          type="number"
                           value={formData.totalDuration}
                           onChange={(e) => handleInputChange('totalDuration', e.target.value)}
                           className={`mt-2 h-12 text-base ${errors.totalDuration ? 'border-red-500' : ''}`}
@@ -530,32 +991,56 @@ export default function NewCalculationPage() {
                         <Label htmlFor="bunkerPort" className="text-base font-medium">
                           Bunker Port <span className="text-red-500">*</span>
                         </Label>
-                        <div className="relative mt-2">
+                        <div className="relative mt-2 bunker-dropdown-container">
                           <Input
                             id="bunkerPort"
-                            value={formData.bunkerPort}
-                            onChange={(e) => handleInputChange('bunkerPort', e.target.value)}
+                            value={bunkerSearchTerm}
+                            onChange={(e) => handleBunkerSearch(e.target.value)}
+                            onFocus={() => setShowBunkerDropdown(true)}
                             className={`h-12 text-base ${errors.bunkerPort ? 'border-red-500' : ''}`}
-                            placeholder="Enter bunker port"
+                            placeholder="Search and select bunker port"
                           />
                           <ChevronDown className="absolute right-3 top-4 h-5 w-5 text-muted-foreground" />
+
+                          {/* Dropdown */}
+                          {showBunkerDropdown && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {displayFuelNames.length > 0 ? (
+                                displayFuelNames.map((name) => (
+                                  <div
+                                    key={name}
+                                    className="px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
+                                    onClick={() => handleBunkerSelect(name)}
+                                  >
+                                    {name}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-4 py-3 text-sm text-gray-500">
+                                  No fuel names found
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {errors.bunkerPort && (
                           <p className="text-sm text-red-500 mt-1">{errors.bunkerPort}</p>
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="delivery" className="text-base font-medium">
-                          Delivery
+                        <Label htmlFor="difference" className="text-base font-medium">
+                          Fuel Cost
                         </Label>
                         <Input
-                          id="delivery"
-                          value={formData.delivery}
-                          onChange={(e) => handleInputChange('delivery', e.target.value)}
+                          id="difference"
+                          type="number"
+                          value={formData.difference}
+                          onChange={(e) => handleInputChange('difference', e.target.value)}
                           className="mt-2 h-12 text-base"
-                          placeholder="Delivery terms"
+                          placeholder="Delivered fuel cost (USD)"
                         />
                       </div>
+                      {/*
                       <div>
                         <Label htmlFor="fob" className="text-base font-medium">
                           FOB
@@ -571,6 +1056,8 @@ export default function NewCalculationPage() {
                           <ChevronDown className="absolute right-3 top-4 h-5 w-5 text-muted-foreground" />
                         </div>
                       </div>
+                      */
+                      }
                     </div>
                   </div>
                 </CardContent>
@@ -595,21 +1082,22 @@ export default function NewCalculationPage() {
                           Load Port <span className="text-red-500">*</span>
                         </Label>
                         <div className="flex items-center space-x-3 mt-2">
-                          <Input
-                            id="loadPort"
-                            value={formData.loadPort}
-                            onChange={(e) => handleInputChange('loadPort', e.target.value)}
-                            className={`h-12 text-base flex-1 ${errors.loadPort ? 'border-red-500' : ''}`}
-                            placeholder="Enter load port"
-                          />
+                          <div className="flex-1">
+                            <Input
+                              id="loadPort"
+                              value={formData.loadPort}
+                              onChange={(e) => handleInputChange('loadPort', e.target.value)}
+                              className={`h-12 text-base ${errors.loadPort ? 'border-red-500' : ''}`}
+                              placeholder="Enter port name or select from list"
+                            />
+                          </div>
                           <Button
                             variant="outline"
-                            size="sm"
-                            onClick={() => copyPort('loadPort', 'dischargePort')}
+                            onClick={() => setShowLoadPortDialog(true)}
                             className="h-12 px-4"
-                            title="Copy to discharge port"
+                            title="Select from port list"
                           >
-                            <Copy className="h-4 w-4" />
+                            <Search className="h-4 w-4" />
                           </Button>
                         </div>
                         {errors.loadPort && (
@@ -621,21 +1109,22 @@ export default function NewCalculationPage() {
                           Discharge Port <span className="text-red-500">*</span>
                         </Label>
                         <div className="flex items-center space-x-3 mt-2">
-                          <Input
-                            id="dischargePort"
-                            value={formData.dischargePort}
-                            onChange={(e) => handleInputChange('dischargePort', e.target.value)}
-                            className={`h-12 text-base flex-1 ${errors.dischargePort ? 'border-red-500' : ''}`}
-                            placeholder="Enter discharge port"
-                          />
+                          <div className="flex-1">
+                            <Input
+                              id="dischargePort"
+                              value={formData.dischargePort}
+                              onChange={(e) => handleInputChange('dischargePort', e.target.value)}
+                              className={`h-12 text-base ${errors.dischargePort ? 'border-red-500' : ''}`}
+                              placeholder="Enter port name or select from list"
+                            />
+                          </div>
                           <Button
                             variant="outline"
-                            size="sm"
-                            onClick={() => copyPort('dischargePort', 'loadPort')}
+                            onClick={() => setShowDischargePortDialog(true)}
                             className="h-12 px-4"
-                            title="Copy to load port"
+                            title="Select from port list"
                           >
-                            <Copy className="h-4 w-4" />
+                            <Search className="h-4 w-4" />
                           </Button>
                         </div>
                         {errors.dischargePort && (
@@ -936,6 +1425,25 @@ export default function NewCalculationPage() {
           )}
         </div>
       </div>
+
+      {/* Ports Dialogs */}
+      <PortsDialog
+        open={showLoadPortDialog}
+        onOpenChange={setShowLoadPortDialog}
+        onSelect={handleLoadPortSelect}
+        title="Select Load Port"
+        description="Choose a port for loading cargo"
+        initialNameFilter={formData.loadPort}
+      />
+
+      <PortsDialog
+        open={showDischargePortDialog}
+        onOpenChange={setShowDischargePortDialog}
+        onSelect={handleDischargePortSelect}
+        title="Select Discharge Port"
+        description="Choose a port for discharging cargo"
+        initialNameFilter={formData.dischargePort}
+      />
     </div>
   );
 }

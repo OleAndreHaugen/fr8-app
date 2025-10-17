@@ -20,8 +20,8 @@ create table if not exists public.routes (
   total_lsmgo decimal,
   total_pda integer,
   total_misc integer,
-  comission decimal,
-  comission_adress decimal,
+  commission decimal,
+  commission_adress decimal,
   intake integer,
   intake_tolerance text,
   rate decimal,
@@ -135,8 +135,8 @@ comment on column public.routes.total_vlsfo is 'Total VLSFO fuel cost';
 comment on column public.routes.total_lsmgo is 'Total LSMGO fuel cost';
 comment on column public.routes.total_pda is 'Total PDA cost';
 comment on column public.routes.total_misc is 'Total miscellaneous costs';
-comment on column public.routes.comission is 'Commission amount';
-comment on column public.routes.comission_adress is 'Commission address';
+comment on column public.routes.commission is 'Commission amount';
+comment on column public.routes.commission_adress is 'Commission address';
 comment on column public.routes.intake is 'Intake amount';
 comment on column public.routes.intake_tolerance is 'Intake tolerance';
 comment on column public.routes.rate is 'Base rate';

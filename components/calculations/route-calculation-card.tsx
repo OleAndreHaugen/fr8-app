@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, PieCha
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type RouteData = Database['public']['Tables']['routes']['Row'];
 
@@ -165,7 +166,7 @@ function CostBreakdownChart({ route }: CostBreakdownChartProps) {
     { name: 'LSMGO', value: route.total_lsmgo || 0, color: '#10b981' },
     { name: 'PDA', value: route.total_pda || 0, color: '#f59e0b' },
     { name: 'Misc', value: route.total_misc || 0, color: '#ef4444' },
-    { name: 'Commission', value: route.comission || 0, color: '#8b5cf6' },
+    { name: 'Commission', value: route.commission || 0, color: '#8b5cf6' },
   ].filter(item => item.value > 0);
 
   if (data.length === 0) {
@@ -230,6 +231,7 @@ interface RouteCalculationCardProps {
 type CardState = 'compact' | 'full' | 'full-with-chart';
 
 export function RouteCalculationCard({ route, showChart = true, compact = false, allowToggle = false, globalState }: RouteCalculationCardProps) {
+  const router = useRouter();
   const [cardState, setCardState] = useState<CardState>(() => {
     if (globalState) return globalState;
     if (compact) return 'compact';
@@ -238,6 +240,14 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
   });
   
   const forward = route.rates as unknown as ForwardRates | null;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on buttons or interactive elements
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    router.push(`/dashboard/calculations/detail?id=${route.id}`);
+  };
   
   // Use global state if provided, otherwise use local state
   const currentState = globalState || cardState;
@@ -284,7 +294,10 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
   
   if (currentState === 'compact') {
     return (
-      <div className="flex items-center justify-between p-3 border bg-white rounded-xl hover:bg-muted/50 transition-colors">
+      <div 
+        className="flex items-center justify-between p-3 border bg-white rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
+        onClick={handleCardClick}
+      >
         <div className="flex-1">
           <div className="font-medium text-sm">{formatSysName(route.sys_name)}</div>
           <div className="text-xs text-muted-foreground">{route.customer || 'No Customer'}</div>
@@ -314,7 +327,7 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
   }
   
   return (
-    <Card className="overflow-hidden rounded-xl">
+    <Card className="overflow-hidden rounded-xl cursor-pointer hover:shadow-md transition-shadow" onClick={handleCardClick}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex-1">
@@ -381,7 +394,7 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
                   return (
                     <div key={month.key} className="text-center p-2 bg-muted/50 rounded">
                       <div className="font-medium">{month.name}</div>
-                      <div className="text-muted-foreground">${rate?.toFixed(0) || 'N/A'}</div>
+                      <div className="text-muted-foreground">${rate?.toFixed(2) || 'N/A'}</div>
                     </div>
                   );
                 })}
@@ -392,12 +405,7 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
                 <h5 className="text-xs font-medium text-muted-foreground mb-2">Rate Trend</h5>
                 <RateTrendChart forward={forward} currentRate={currentRate} />
               </div>
-
-              {/* Cost Breakdown */}
-              <div className="mt-4">
-                <h5 className="text-xs font-medium text-muted-foreground mb-2">Cost Breakdown</h5>
-                <CostBreakdownChart route={route} />
-              </div>
+ 
             </div>
           )}
         </div>

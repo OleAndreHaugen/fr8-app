@@ -158,7 +158,7 @@ export default function FuelPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">Fuel Overview</h1>
           <p className="text-muted-foreground">
@@ -188,7 +188,7 @@ export default function FuelPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">Fuel Overview</h1>
           <p className="text-muted-foreground">
@@ -208,7 +208,7 @@ export default function FuelPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Fuel Overview</h1>
         <p className="text-muted-foreground">

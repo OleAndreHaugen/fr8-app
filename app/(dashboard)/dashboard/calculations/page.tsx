@@ -192,7 +192,7 @@ export default function CalculationsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">My Calculations</h1>
           <p className="text-muted-foreground">
@@ -222,7 +222,7 @@ export default function CalculationsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">My Calculations</h1>
           <p className="text-muted-foreground">
@@ -242,7 +242,7 @@ export default function CalculationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">My Calculations</h1>
@@ -250,7 +250,7 @@ export default function CalculationsPage() {
             Manage your freight calculations and route analysis
           </p>
         </div>
-        <Link href="/dashboard/calculations/new">
+        <Link href="/dashboard/calculations/detail">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             New Calculation

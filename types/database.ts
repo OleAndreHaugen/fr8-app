@@ -239,7 +239,6 @@ export interface Database {
       routes: {
         Row: {
           id: string;
-          name: string;
           account_id: string | null;
           customer: string | null;
           route: string | null;
@@ -255,8 +254,8 @@ export interface Database {
           total_lsmgo: number | null;
           total_pda: number | null;
           total_misc: number | null;
-          comission: number | null;
-          comission_adress: number | null;
+          commission: number | null;
+          commission_adress: number | null;
           intake: number | null;
           intake_tolerance: string | null;
           rate: number | null;
@@ -276,8 +275,6 @@ export interface Database {
           diff_dec: number | null;
           sys_name: string | null;
           rates: Json | null;
-          savedBy: string;
-          savedAt: string;
           active: boolean | null;
           stemsize: number | null;
           diff_jan_unit: string | null;
@@ -298,7 +295,6 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          name: string;
           account_id?: string | null;
           customer?: string | null;
           route?: string | null;
@@ -314,8 +310,8 @@ export interface Database {
           total_lsmgo?: number | null;
           total_pda?: number | null;
           total_misc?: number | null;
-          comission?: number | null;
-          comission_adress?: number | null;
+          commission?: number | null;
+          commission_adress?: number | null;
           intake?: number | null;
           intake_tolerance?: string | null;
           rate?: number | null;
@@ -335,8 +331,6 @@ export interface Database {
           diff_dec?: number | null;
           sys_name?: string | null;
           rates?: Json | null;
-          savedBy: string;
-          savedAt?: string;
           active?: boolean | null;
           stemsize?: number | null;
           diff_jan_unit?: string | null;
@@ -357,7 +351,6 @@ export interface Database {
         };
         Update: {
           id?: string;
-          name?: string;
           account_id?: string | null;
           customer?: string | null;
           route?: string | null;
@@ -373,8 +366,8 @@ export interface Database {
           total_lsmgo?: number | null;
           total_pda?: number | null;
           total_misc?: number | null;
-          comission?: number | null;
-          comission_adress?: number | null;
+          commission?: number | null;
+          commission_adress?: number | null;
           intake?: number | null;
           intake_tolerance?: string | null;
           rate?: number | null;
@@ -394,8 +387,6 @@ export interface Database {
           diff_dec?: number | null;
           sys_name?: string | null;
           rates?: Json | null;
-          savedBy?: string;
-          savedAt?: string;
           active?: boolean | null;
           stemsize?: number | null;
           diff_jan_unit?: string | null;

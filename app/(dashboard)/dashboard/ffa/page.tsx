@@ -170,7 +170,7 @@ export default function RoutesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
           <p className="text-muted-foreground">
@@ -218,7 +218,7 @@ export default function RoutesPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
           <p className="text-muted-foreground">
@@ -238,7 +238,7 @@ export default function RoutesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
         <p className="text-muted-foreground">
