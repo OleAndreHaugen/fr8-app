@@ -112,8 +112,7 @@ interface PriceTrendChartProps {
 
 function PriceTrendChart({ forward, currentPrice }: PriceTrendChartProps) {
   // Prepare chart data including current price and forward prices
-  const chartData = [
-    { month: 'Now', price: currentPrice, change: 0 },
+  const chartData = [    
     ...MONTHS.map((month) => {
       // Try to get price from named month first, then fall back to sequential
       let price = forward[month.key as keyof ForwardPricing];
@@ -182,6 +181,7 @@ function PriceTrendChart({ forward, currentPrice }: PriceTrendChartProps) {
 
 interface FFAPriceCardProps {
   ffa: FFAData;
+  ffaHist?: FFAData;
   showChart?: boolean;
   compact?: boolean;
   allowToggle?: boolean;
@@ -190,7 +190,7 @@ interface FFAPriceCardProps {
 
 type CardState = 'compact' | 'full' | 'full-with-chart';
 
-export function FFAPriceCard({ ffa, showChart = true, compact = false, allowToggle = false, globalState }: FFAPriceCardProps) {
+export function FFAPriceCard({ ffa, ffaHist, showChart = true, compact = false, allowToggle = false, globalState }: FFAPriceCardProps) {
   const [cardState, setCardState] = useState<CardState>(() => {
     if (globalState) return globalState;
     if (compact) return 'compact';
@@ -199,10 +199,12 @@ export function FFAPriceCard({ ffa, showChart = true, compact = false, allowTogg
   });
   
   const forward = ffa.forward as unknown as ForwardPricing | null;
+  const forwardHist = ffaHist?.forward as unknown as ForwardPricing | null;
   
   // Get current price from price0 (current month)
   const currentPrice = forward?.price0 || 0;
-  const previousPrice = forward?.price1 || null; // Use price1 as previous for comparison
+  // Get previous price from historical data price0, fallback to null if no historical data
+  const previousPrice = forwardHist?.price0 || null;  
   
   // Use global state if provided, otherwise use local state
   const currentState = globalState || cardState;

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 
-type UserProfile = Database["public"]["Tables"]["user_profiles"]["Row"];
+type UserProfile = Database["public"]["Tables"]["user_profiles"]["Row"] & {
+  accounts?: Database["public"]["Tables"]["accounts"]["Row"];
+};
 
 export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -27,7 +29,16 @@ export function useUserProfile() {
 
         const { data, error } = await supabase
           .from("user_profiles")
-          .select("*")
+          .select(`
+            *,
+            accounts (
+              id,
+              name,
+              type,
+              status,
+              emaildomain
+            )
+          `)
           .eq("user_id", user.id)
           .single();
 
@@ -68,7 +79,16 @@ export function useUserProfile() {
           .from("user_profiles")
           .update(updates)
           .eq("user_id", user.id)
-          .select()
+          .select(`
+            *,
+            accounts (
+              id,
+              name,
+              type,
+              status,
+              emaildomain
+            )
+          `)
           .single();
 
         if (error) throw error;
@@ -81,7 +101,16 @@ export function useUserProfile() {
             user_id: user.id,
             ...updates,
           })
-          .select()
+          .select(`
+            *,
+            accounts (
+              id,
+              name,
+              type,
+              status,
+              emaildomain
+            )
+          `)
           .single();
 
         if (error) throw error;

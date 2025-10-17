@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "FR8",
   description: "Modern freight management and tracking portal",
+  icons: {
+    icon: "/fr8_favicon.png",
+  },
 };
 
 export default function RootLayout({

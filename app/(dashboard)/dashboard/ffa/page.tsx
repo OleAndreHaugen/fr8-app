@@ -15,6 +15,7 @@ import {
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 
 type FFAData = Database['public']['Tables']['ffa']['Row'];
+type FFAHistData = Database['public']['Tables']['ffa_hist']['Row'];
 type CardState = 'compact' | 'full' | 'full-with-chart';
 
 interface MultiSelectFilterProps {
@@ -89,6 +90,7 @@ function MultiSelectFilter({ label, options, selected, onSelectionChange }: Mult
 
 export default function RoutesPage() {
   const [ffaData, setFfaData] = useState<FFAData[]>([]);
+  const [ffaHistData, setFfaHistData] = useState<FFAHistData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedContracts, setSelectedContracts] = useState<string[]>([]);
@@ -99,17 +101,32 @@ export default function RoutesPage() {
       try {
         const supabase = createClient();
         
-        const { data, error } = await supabase
+        // Fetch current FFA data
+        const { data: ffaData, error: ffaError } = await supabase
           .from('ffa')
           .select('*')
           .order('contract', { ascending: true })
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('Error fetching FFA data:', error);
-          setError(error.message);
+        // Fetch historical FFA data
+        const { data: ffaHistData, error: ffaHistError } = await supabase
+          .from('ffa_hist')
+          .select('*')
+          .order('contract', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        if (ffaError) {
+          console.error('Error fetching FFA data:', ffaError);
+          setError(ffaError.message);
         } else {
-          setFfaData(data || []);
+          setFfaData(ffaData || []);
+        }
+
+        if (ffaHistError) {
+          console.error('Error fetching FFA historical data:', ffaHistError);
+          // Don't set error for historical data as it's not critical
+        } else {
+          setFfaHistData(ffaHistData || []);
         }
       } catch (err) {
         console.error('Unexpected error:', err);
@@ -127,9 +144,9 @@ export default function RoutesPage() {
   };
 
   const toggleOptions = [
-    { value: 'compact', label: 'Compact' },
-    { value: 'full', label: 'Full' },
-    { value: 'full-with-chart', label: 'Charts' }
+    { value: 'compact', label: 'Small' },
+    { value: 'full', label: 'Medium' },
+    { value: 'full-with-chart', label: 'Large' }
   ];
 
   // Filter the data based on selected filters
@@ -146,11 +163,16 @@ export default function RoutesPage() {
     setSelectedContracts([]);
   };
 
+  // Helper function to find historical data for a contract
+  const getHistoricalData = (contract: string): FFAHistData | undefined => {
+    return ffaHistData.find(hist => hist.contract === contract);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">FFA/Routes</h1>
+          <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
           <p className="text-muted-foreground">
             Loading Forward Freight Agreement data...
           </p>
@@ -198,7 +220,7 @@ export default function RoutesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">FFA/Routes</h1>
+          <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
           <p className="text-muted-foreground">
             Error loading FFA data
           </p>
@@ -218,7 +240,7 @@ export default function RoutesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">FFA/Routes</h1>
+        <h1 className="font-bold text-3xl tracking-tight">FFA</h1>
         <p className="text-muted-foreground">
           Forward Freight Agreement pricing and routes data
         </p>
@@ -267,16 +289,22 @@ export default function RoutesPage() {
       {/* FFA Cards Grid */}
       {filteredFFA.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredFFA.map((ffa) => (
-            <FFAPriceCard 
-              key={ffa.id} 
-              ffa={ffa} 
-              compact={false} 
-              showChart={true} 
-              allowToggle={false}
-              globalState={globalCardState}
-            />
-          ))}
+          {filteredFFA.map((ffa) => {
+            // Get historical data for this contract
+            const historicalData = getHistoricalData(ffa.contract);
+
+            return (
+              <FFAPriceCard 
+                key={ffa.id} 
+                ffa={ffa} 
+                ffaHist={historicalData}
+                compact={false} 
+                showChart={true} 
+                allowToggle={false}
+                globalState={globalCardState}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="flex items-center justify-center py-12 text-muted-foreground">

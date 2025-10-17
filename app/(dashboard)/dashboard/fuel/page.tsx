@@ -134,9 +134,9 @@ export default function FuelPage() {
   };
 
   const toggleOptions = [
-    { value: 'compact', label: 'Compact' },
-    { value: 'full', label: 'Full' },
-    { value: 'full-with-chart', label: 'Charts' }
+    { value: 'compact', label: 'Small' },
+    { value: 'full', label: 'Medium' },
+    { value: 'full-with-chart', label: 'Large' }
   ];
 
   // Filter the data based on selected filters

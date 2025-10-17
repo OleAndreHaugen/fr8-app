@@ -1,5 +1,7 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getYesterday, getPeriodFrom, getPeriodTo, calculateMonthsToTargetDate, getMonthNameFromDate } from "./utils.ts";
 const DEFAULT_CONTRACTS = [
   "Dry_10TC_S_Fr8",
   "Dry_5TC_P_Fr8",
@@ -28,124 +30,22 @@ const DEFAULT_CONTRACTS = [
   "S8_58_Fr8",
   "S9_58_Fr8"
 ];
-function sortDataByContractAndPeriod(data) {
-  data.sort((a, b)=>{
-    if (a.Contract < b.Contract) return -1;
-    if (a.Contract > b.Contract) return 1;
-    if (a.Period < b.Period) return -1;
-    if (a.Period > b.Period) return 1;
-    return 0;
-  });
-  return data;
-}
-function calculateMonthsToTargetDate(targetDate) {
-  const currentDate = new Date();
-  const targetMoment = new Date(targetDate);
-  const diffInMilliseconds = targetMoment - currentDate;
-  const diffInMonths = diffInMilliseconds / (1000 * 60 * 60 * 24 * 30.44);
-  return Math.floor(diffInMonths);
-}
-function getMonthNameFromDate(date) {
-  const monthNames = [
-    "jan",
-    "feb",
-    "mar",
-    "apr",
-    "may",
-    "jun",
-    "jul",
-    "aug",
-    "sep",
-    "oct",
-    "nov",
-    "dec"
-  ];
-  const targetDate = new Date(date);
-  const monthIndex = targetDate.getMonth();
-  const previousMonthIndex = (monthIndex + 12) % 12;
-  const monthName = monthNames[previousMonthIndex];
-  return monthName;
-}
-function getYesterday(days) {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - days);
-  const month = String(yesterday.getMonth() + 1).padStart(2, "0");
-  const day = String(yesterday.getDate()).padStart(2, "0");
-  const year = yesterday.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-function getPeriodFrom() {
-  const date = new Date();
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ];
-  const monthIndex = date.getMonth();
-  const monthName = monthNames[monthIndex];
-  const year = date.getFullYear().toString().slice(-2);
-  const formattedDate = monthName + year;
-  return formattedDate;
-}
-function getPeriodTo() {
-  const currentDate = new Date();
-  const futureDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 12, currentDate.getDate());
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ];
-  const monthIndex = futureDate.getMonth();
-  const monthName = monthNames[monthIndex];
-  const year = futureDate.getFullYear().toString().slice(-2);
-  const formattedDate = monthName + year;
-  return formattedDate;
-}
-// CORS
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
-};
-console.info('server started');
-Deno.serve(async (req)=>{
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders
-    });
-  }
-  try {
-    const token = Deno.env.get("PROSMAR_API_TOKEN") || '8n8364wS64Wjawo5HnJxN8m4Bi5xcpz1';
-    if (!token) {
-      return new Response(JSON.stringify({
-        error: "Missing PROSMAR_API_TOKEN secret"
-      }), {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders
-        }
-      });
+// ---- Env ----
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+//
+// ---- Supabase client (service role, server-side only) ----
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  global: {
+    headers: {
+      "x-application-name": "fetch-fuel"
     }
+  }
+});
+console.info('Starting FFA Fetch');
+Deno.serve(async (req)=>{
+  try {
+    const token = '8n8364wS64Wjawo5HnJxN8m4Bi5xcpz1';
     const url = `https://systems.prosmar.no/tradeblotterapi/api/pricer/prices/getPrices?api_token=${encodeURIComponent(token)}`;
     const payload = {
       Contracts: DEFAULT_CONTRACTS,
@@ -154,31 +54,58 @@ Deno.serve(async (req)=>{
       PeriodFrom: getPeriodFrom(),
       PeriodTo: getPeriodTo()
     };
-    const prosmarRes = await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
     });
-    const text = await prosmarRes.text(); // pass-through as-is (some APIs return text)
-    console.log(await prosmarRes.json());
-    const contentType = prosmarRes.headers.get("content-type") || "application/json";
-    return new Response(text, {
-      status: prosmarRes.status,
-      headers: {
-        "Content-Type": contentType,
-        ...corsHeaders
+    const resData = await res.json();
+    //
+    // Parse
+    const Items = {};
+    for(let i = 0; i < resData.Data.length; i++){
+      const Row = resData.Data[i];
+      const Contract = Row.Contract.split("_Fr8")[0];
+      if (!Items[Contract]) {
+        Items[Contract] = {};
       }
-    });
+      const monthNumber = calculateMonthsToTargetDate(Row.Period);
+      const monthName = getMonthNameFromDate(Row.Period);
+      Items[Contract]["price" + monthNumber] = parseInt(Row.Price);
+      Items[Contract]["price" + monthName] = parseInt(Row.Price);
+    }
+    //
+    // Save in DB
+    for(let key in Items){
+      let { data: FFA, error: FFAErr } = await supabase.from("ffa").select().eq("contract", key);
+      if (FFAErr) throw new Error(`FFA lookup failed: ${FFAErr.message}`);
+      if (!FFA) {
+        FFA = {
+          contract: key
+        };
+      }
+      FFA.forward = Items[key];
+      const { error: savErr } = await supabase.from("ffa").upsert(FFA);
+      if (savErr) throw new Error(`FFA save failed: ${savErr.message}`);
+      //
+      // Done
+      return new Response(JSON.stringify({
+        message: "FFA prices updated"
+      }), {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+    }
   } catch (err) {
     return new Response(JSON.stringify({
       error: err.message || "Unknown error"
     }), {
       status: 500,
       headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders
+        "Content-Type": "application/json"
       }
     });
   }

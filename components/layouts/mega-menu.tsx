@@ -70,8 +70,8 @@ const navigationItems = [
     category: "Trading",
   },
   {
-    name: "FFA/Routes",
-    href: "/dashboard/routes",
+    name: "FFA",
+    href: "/dashboard/ffa",
     icon: Route,
     description: "Forward Freight Agreements and routes",
     category: "Trading",
@@ -108,16 +108,15 @@ export function MegaMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="secondary"
           className={cn(
-            "flex items-center gap-2 px-3 py-2 text-sm font-medium",
+            "flex items-center gap-1 px-2 py-2 text-sm font-medium rounded-xl",
             navigationItems.some((item) => pathname === item.href)
-              ? "bg-accent text-accent-foreground"
+              ? "bg-white text-accent-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <Menu className="h-4 w-4" />
-          Menu
+          <Menu className="h-6 w-6" />                    
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">

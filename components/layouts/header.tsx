@@ -50,7 +50,7 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2">
         <MegaMenu />
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image
@@ -62,10 +62,7 @@ export function Header({ user }: HeaderProps) {
         </Link>
    
       </div>
-      <div className="flex items-center gap-4">
-        <h2 className="font-semibold text-lg hidden lg:block">
-          Piering Ship Owners, Traders, Charterers and Brokers
-        </h2>
+      <div className="flex items-center gap-4">  
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -85,10 +82,6 @@ export function Header({ user }: HeaderProps) {
             <DropdownMenuItem onClick={() => setIsProfileDialogOpen(true)}>
               <User className="mr-2 h-4 w-4" />
               Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>

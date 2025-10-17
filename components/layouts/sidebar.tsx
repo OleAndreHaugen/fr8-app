@@ -49,8 +49,8 @@ const navigation = [
     icon: Fuel,
   },
   {
-    name: "FFA/Routes",
-    href: "/dashboard/routes",
+    name: "FFA",
+    href: "/dashboard/ffa",
     icon: Route,
   },
   {

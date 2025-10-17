@@ -16,13 +16,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 });
 //
 Deno.serve(async (req)=>{
-  /*
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders
-    });
-  }
-  */ try {
+  try {
     //
     // ---- 1) Pull fuel codes -> build unlocodes list ----
     const { data: fuelCodes, error: fcErr } = await supabase.from("fuel_codes").select("code, port");

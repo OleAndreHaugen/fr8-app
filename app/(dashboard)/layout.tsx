@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layouts/header";
+import { AccountAssignmentWrapper } from "@/components/account-assignment-wrapper";
 
 export default async function DashboardLayout({
   children,
@@ -21,7 +22,9 @@ export default async function DashboardLayout({
     <div className="flex h-screen flex-col overflow-hidden">
       <Header user={user} />
       <main className="flex-1 overflow-y-auto bg-secondary/50 p-6">
-        {children}
+        <AccountAssignmentWrapper user={user}>
+          {children}
+        </AccountAssignmentWrapper>
       </main>
     </div>
   );

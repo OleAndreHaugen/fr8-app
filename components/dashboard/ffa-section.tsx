@@ -14,6 +14,7 @@ import {
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 
 type FFAData = Database['public']['Tables']['ffa']['Row'];
+type FFAHistData = Database['public']['Tables']['ffa_hist']['Row'];
 type CardState = 'compact' | 'full' | 'full-with-chart';
 
 // Contract mapping with names and sort order
@@ -36,6 +37,7 @@ function getContractSort(contract: string): number {
 
 export function DashboardFFASection() {
   const [ffaData, setFfaData] = useState<FFAData[]>([]);
+  const [ffaHistData, setFfaHistData] = useState<FFAHistData[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalCardState, setGlobalCardState] = useState<CardState>('full-with-chart');
 
@@ -44,22 +46,36 @@ export function DashboardFFASection() {
       try {
         const supabase = createClient();
         
-        const { data, error } = await supabase
+        // Fetch current FFA data
+        const { data: ffaData, error: ffaError } = await supabase
           .from('ffa')
           .select('*')
           .in('contract', Object.keys(CONTRACT_MAPPING))
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('Error fetching FFA data:', error);
+        // Fetch historical FFA data
+        const { data: ffaHistData, error: ffaHistError } = await supabase
+          .from('ffa_hist')
+          .select('*')
+          .in('contract', Object.keys(CONTRACT_MAPPING))
+          .order('created_at', { ascending: false });
+
+        if (ffaError) {
+          console.error('Error fetching FFA data:', ffaError);
         } else {
           // Sort by the predefined sort order
-          const sortedData = (data || []).sort((a, b) => {
+          const sortedData = (ffaData || []).sort((a, b) => {
             const sortA = getContractSort(a.contract);
             const sortB = getContractSort(b.contract);
             return sortA - sortB;
           });
           setFfaData(sortedData);
+        }
+
+        if (ffaHistError) {
+          console.error('Error fetching FFA historical data:', ffaHistError);
+        } else {
+          setFfaHistData(ffaHistData || []);
         }
       } catch (err) {
         console.error('Unexpected error:', err);
@@ -76,10 +92,15 @@ export function DashboardFFASection() {
   };
 
   const toggleOptions = [
-    { value: 'compact', label: 'Compact' },
-    { value: 'full', label: 'Full' },
-    { value: 'full-with-chart', label: 'Charts' }
+    { value: 'compact', label: 'Small' },
+    { value: 'full', label: 'Medium' },
+    { value: 'full-with-chart', label: 'Large' }
   ];
+
+  // Helper function to find historical data for a contract
+  const getHistoricalData = (contract: string): FFAHistData | undefined => {
+    return ffaHistData.find(hist => hist.contract === contract);
+  };
 
   if (loading) {
     return (
@@ -160,11 +181,15 @@ export function DashboardFFASection() {
             ...ffa,
             contract: getContractName(ffa.contract)
           };
-          
+
+          // Get historical data for this contract
+          const historicalData = getHistoricalData(ffa.contract);
+
           return (
             <FFAPriceCard 
               key={ffa.id} 
               ffa={ffaWithDisplayName} 
+              ffaHist={historicalData}
               compact={false} 
               showChart={true} 
               allowToggle={false}

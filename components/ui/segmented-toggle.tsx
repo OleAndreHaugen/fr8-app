@@ -22,7 +22,7 @@ export function SegmentedToggle({
 }: SegmentedToggleProps) {
   return (
     <div className={cn(
-      "inline-flex rounded-lg border bg-white p-1",
+      "inline-flex rounded-lg border bg-background p-1",
       className
     )}>
       {options.map((option, index) => (
@@ -31,11 +31,11 @@ export function SegmentedToggle({
           onClick={() => onValueChange(option.value)}
           className={cn(
             "relative px-3 py-1.5 text-sm font-medium transition-all duration-200",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
             "first:rounded-l-md last:rounded-r-md",
             value === option.value
-              ? "bg-blue-100 text-blue-700 shadow-sm"
-              : "text-blue-600 hover:bg-blue-50"
+              ? "bg-secondary text-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           )}
         >
           {option.label}
