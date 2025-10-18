@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -34,6 +35,18 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  // Show verification message if redirected from middleware
+  useEffect(() => {
+    const message = searchParams.get("message");
+    if (message) {
+      toast({
+        variant: "destructive",
+        title: "Email Verification Required",
+        description: message,
+      });
+    }
+  }, [searchParams, toast]);
+
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true);
 
@@ -44,11 +57,20 @@ export default function LoginPage() {
       });
 
       if (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message,
-        });
+        // Check if it's an email verification error
+        if (error.message.includes("Email not confirmed") || error.message.includes("email_not_confirmed")) {
+          toast({
+            variant: "destructive",
+            title: "Email Verification Required",
+            description: "Please check your email and click the verification link before logging in.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message,
+          });
+        }
         return;
       }
 

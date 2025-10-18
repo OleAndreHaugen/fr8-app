@@ -50,9 +50,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages
+  // Check if authenticated user has verified their email
   if (
     user &&
+    !user.email_confirmed_at &&
+    !request.nextUrl.pathname.startsWith("/login") &&
+    !request.nextUrl.pathname.startsWith("/signup") &&
+    request.nextUrl.pathname !== "/"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("message", "Please verify your email address before accessing the dashboard.");
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect authenticated and verified users away from auth pages
+  if (
+    user &&
+    user.email_confirmed_at &&
     (request.nextUrl.pathname.startsWith("/login") ||
       request.nextUrl.pathname.startsWith("/signup"))
   ) {

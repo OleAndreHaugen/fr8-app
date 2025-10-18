@@ -128,7 +128,6 @@ export function AccountAssignmentDialog({ userEmail, onComplete }: AccountAssign
                 <SelectContent>
                   <SelectItem value="Owner">Owner</SelectItem>
                   <SelectItem value="Broker">Broker</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
                   <SelectItem value="Charterer">Charterer</SelectItem>
                 </SelectContent>
               </Select>

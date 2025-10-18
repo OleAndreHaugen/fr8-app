@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 
@@ -12,54 +12,94 @@ export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
 
   useEffect(() => {
+    console.log("useUserProfile effect running");
+    let isMounted = true;
+    const supabase = createClient();
+    
     const fetchProfile = async () => {
       try {
+        console.log("Starting to fetch profile");
         setLoading(true);
         setError(null);
 
         const { data: { user } } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        
         if (!user) {
           setProfile(null);
           setLoading(false);
           return;
         }
 
+        // Check if user's email is confirmed
+        if (!user.email_confirmed_at) {
+          setError("Please verify your email address before accessing the dashboard.");
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        // First try to get the user profile without the accounts relationship
         const { data, error } = await supabase
           .from("user_profiles")
-          .select(`
-            *,
-            accounts (
-              id,
-              name,
-              type,
-              status,
-              emaildomain
-            )
-          `)
+          .select("*")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid 406 errors
 
-        if (error && error.code !== "PGRST116") { // PGRST116 = no rows returned
+        if (!isMounted) return;
+        
+        if (error) {
           throw error;
         }
 
-        setProfile(data || null);
+        if (data) {
+          // If profile exists and has an account_id, fetch the account details separately
+          if (data.account_id) {
+            const { data: accountData, error: accountError } = await supabase
+              .from("accounts")
+              .select("id, name, type, status, emaildomain")
+              .eq("id", data.account_id)
+              .maybeSingle(); // Use maybeSingle to avoid 406 errors
+
+            if (!isMounted) return;
+            
+            if (accountError) {
+              console.warn("Failed to fetch account details:", accountError);
+            }
+
+            setProfile({
+              ...data,
+              accounts: accountData || undefined
+            });
+          } else {
+            setProfile(data);
+          }
+        } else {
+          setProfile(null);
+        }
       } catch (err) {
+        if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Failed to fetch profile");
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchProfile();
-  }, [supabase]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const updateProfile = async (updates: Partial<Omit<UserProfile, "id" | "user_id" | "created_at" | "updated_at">>) => {
     try {
       setError(null);
+      const supabase = createClient();
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -71,7 +111,7 @@ export function useUserProfile() {
         .from("user_profiles")
         .select("id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (existingProfile) {
         // Update existing profile
@@ -79,20 +119,30 @@ export function useUserProfile() {
           .from("user_profiles")
           .update(updates)
           .eq("user_id", user.id)
-          .select(`
-            *,
-            accounts (
-              id,
-              name,
-              type,
-              status,
-              emaildomain
-            )
-          `)
-          .single();
+          .select("*")
+          .maybeSingle();
 
         if (error) throw error;
-        setProfile(data);
+        
+        // If profile has account_id, fetch account details separately
+        if (data?.account_id) {
+          const { data: accountData, error: accountError } = await supabase
+            .from("accounts")
+            .select("id, name, type, status, emaildomain")
+            .eq("id", data.account_id)
+            .maybeSingle();
+
+          if (accountError) {
+            console.warn("Failed to fetch account details:", accountError);
+          }
+
+          setProfile({
+            ...data,
+            accounts: accountData || undefined
+          });
+        } else {
+          setProfile(data);
+        }
       } else {
         // Create new profile
         const { data, error } = await supabase
@@ -101,20 +151,30 @@ export function useUserProfile() {
             user_id: user.id,
             ...updates,
           })
-          .select(`
-            *,
-            accounts (
-              id,
-              name,
-              type,
-              status,
-              emaildomain
-            )
-          `)
-          .single();
+          .select("*")
+          .maybeSingle();
 
         if (error) throw error;
-        setProfile(data);
+        
+        // If profile has account_id, fetch account details separately
+        if (data?.account_id) {
+          const { data: accountData, error: accountError } = await supabase
+            .from("accounts")
+            .select("id, name, type, status, emaildomain")
+            .eq("id", data.account_id)
+            .maybeSingle();
+
+          if (accountError) {
+            console.warn("Failed to fetch account details:", accountError);
+          }
+
+          setProfile({
+            ...data,
+            accounts: accountData || undefined
+          });
+        } else {
+          setProfile(data);
+        }
       }
 
       return { success: true };

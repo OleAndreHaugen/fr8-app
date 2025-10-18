@@ -25,13 +25,35 @@ export function extractEmailDomain(email: string): string {
 export async function assignUserToAccount(userId: string, accountId: string) {
   const supabase = createClient();
   
-  const { error } = await supabase
+  // First check if user profile exists
+  const { data: existingProfile } = await supabase
     .from("user_profiles")
-    .update({ account_id: accountId })
-    .eq("user_id", userId);
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
 
-  if (error) {
-    throw new Error(`Failed to assign user to account: ${error.message}`);
+  if (existingProfile) {
+    // Update existing profile
+    const { error } = await supabase
+      .from("user_profiles")
+      .update({ account_id: accountId })
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(`Failed to assign user to account: ${error.message}`);
+    }
+  } else {
+    // Create new profile with account assignment
+    const { error } = await supabase
+      .from("user_profiles")
+      .insert({
+        user_id: userId,
+        account_id: accountId
+      });
+
+    if (error) {
+      throw new Error(`Failed to create user profile: ${error.message}`);
+    }
   }
 }
 
@@ -88,9 +110,9 @@ export async function findAccountByEmailDomain(emaildomain: string): Promise<Acc
     .from("accounts")
     .select("*")
     .eq("emaildomain", emaildomain.toLowerCase())
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== "PGRST116") { // PGRST116 = no rows returned
+  if (error) {
     throw new Error(`Failed to find account: ${error.message}`);
   }
 
@@ -167,9 +189,9 @@ export async function getAccountById(accountId: string): Promise<Account | null>
     .from("accounts")
     .select("*")
     .eq("id", accountId)
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== "PGRST116") { // PGRST116 = no rows returned
+  if (error) {
     throw new Error(`Failed to get account: ${error.message}`);
   }
 
@@ -188,13 +210,9 @@ export async function getUserAccountId(userId: string): Promise<string | null> {
     .from("user_profiles")
     .select("account_id")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === "PGRST116") { // PGRST116 = no rows returned
-      console.log("No user profile found for user:", userId);
-      return null;
-    }
     console.error("Error getting user account:", error);
     throw new Error(`Failed to get user account: ${error.message}`);
   }

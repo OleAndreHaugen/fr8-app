@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FuelPriceCard } from "@/components/fuel/fuel-price-card";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
+import { useCardState } from "@/hooks/use-card-state";
 
 type FuelData = Database['public']['Tables']['fuel']['Row'];
 type CardState = 'compact' | 'full' | 'full-with-chart';
@@ -99,7 +100,7 @@ export default function FuelPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [globalCardState, setGlobalCardState] = useState<CardState>('full');
+  const [globalCardState, setGlobalCardState] = useCardState('fuel-page', 'full');
 
   useEffect(() => {
     async function fetchFuelData() {

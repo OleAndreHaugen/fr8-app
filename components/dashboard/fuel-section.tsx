@@ -12,6 +12,7 @@ import { Database } from "@/types/database";
 import { useEffect, useState } from "react";
 import { FuelPriceCard } from "@/components/fuel/fuel-price-card";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
+import { useCardState } from "@/hooks/use-card-state";
 
 type FuelData = Database['public']['Tables']['fuel']['Row'];
 type CardState = 'compact' | 'full' | 'full-with-chart';
@@ -28,7 +29,7 @@ const DASHBOARD_FUEL_LOCATIONS = [
 export function DashboardFuelSection() {
   const [fuelsData, setFuelsData] = useState<FuelData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalCardState, setGlobalCardState] = useState<CardState>('full');
+  const [globalCardState, setGlobalCardState] = useCardState('dashboard-fuel', 'full');
 
   useEffect(() => {
     async function fetchFuelData() {

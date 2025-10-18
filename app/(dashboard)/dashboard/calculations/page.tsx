@@ -258,37 +258,6 @@ export default function CalculationsPage() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Calculations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{totalRoutes}</div>
-            <p className="text-muted-foreground text-xs">{activeRoutes} Active Routes</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Active Routes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{activeRoutes}</div>
-            <p className="text-muted-foreground text-xs">{totalRoutes - activeRoutes} Inactive</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Filtered Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{filteredRoutes.length}</div>
-            <p className="text-muted-foreground text-xs">of {totalRoutes} total</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters Section */}
       <Card className="rounded-xl">
         <CardHeader className="pb-4">

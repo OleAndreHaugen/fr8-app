@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
+import { useCardState } from "@/hooks/use-card-state";
 
 type FFAData = Database['public']['Tables']['ffa']['Row'];
 type FFAHistData = Database['public']['Tables']['ffa_hist']['Row'];
@@ -94,7 +95,7 @@ export default function RoutesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedContracts, setSelectedContracts] = useState<string[]>([]);
-  const [globalCardState, setGlobalCardState] = useState<CardState>('full-with-chart');
+  const [globalCardState, setGlobalCardState] = useCardState('ffa-page', 'full');
 
   useEffect(() => {
     async function fetchFFAData() {

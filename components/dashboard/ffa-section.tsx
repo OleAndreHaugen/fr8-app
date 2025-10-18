@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
+import { useCardState } from "@/hooks/use-card-state";
 
 type FFAData = Database['public']['Tables']['ffa']['Row'];
 type FFAHistData = Database['public']['Tables']['ffa_hist']['Row'];
@@ -39,7 +40,7 @@ export function DashboardFFASection() {
   const [ffaData, setFfaData] = useState<FFAData[]>([]);
   const [ffaHistData, setFfaHistData] = useState<FFAHistData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalCardState, setGlobalCardState] = useState<CardState>('full-with-chart');
+  const [globalCardState, setGlobalCardState] = useCardState('dashboard-ffa', 'full');
 
   useEffect(() => {
     async function fetchFFAData() {
