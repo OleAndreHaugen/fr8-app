@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Database } from "@/types/database";
 import { ArrowUp, ArrowDown, Minus, Maximize2, Minimize2, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie, Cell as PieCell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip, Cell, PieChart, Pie, Cell as PieCell } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -121,7 +121,7 @@ function RateTrendChart({ forward, currentRate }: RateTrendChartProps) {
             interval="preserveStartEnd"
           />
           <YAxis hide />
-          <Tooltip 
+          <RechartsTooltip 
             formatter={(value: number, _name: string, props: any) => [
               `$${value.toFixed(2)}`, 
               props.payload.change > 0 ? 'Rate ↑' : props.payload.change < 0 ? 'Rate ↓' : 'Rate'
@@ -194,7 +194,7 @@ function CostBreakdownChart({ route }: CostBreakdownChartProps) {
               <PieCell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip 
+          <RechartsTooltip 
             formatter={(value: number) => [`$${value.toFixed(0)}`, 'Cost']}
             contentStyle={{
               backgroundColor: 'hsl(var(--background))',
@@ -286,6 +286,58 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
     }
   };
 
+  // Parse sys_name into structured components
+  const parseSysName = (sysName: string | null) => {
+    if (!sysName) return {
+      stemSize: '',
+      tolerance: '',
+      route: '',
+      rates: '',
+      commissions: '',
+      full: 'Unnamed Route'
+    };
+
+    // Example: "66' 10% Santos-Qingdao 8000 satpm / 8000 satpm 3.7%+2.5%"
+    const parts = sysName.split(' ');
+    
+    // More robust parsing
+    const stemSize = parts[0] || '';
+    const tolerance = parts[1] || '';
+    
+    // Find the route part (usually contains a dash)
+    let route = '';
+    let ratesStartIndex = 2;
+    for (let i = 2; i < parts.length; i++) {
+      if (parts[i].includes('-')) {
+        route = parts[i];
+        ratesStartIndex = i + 1;
+        break;
+      }
+    }
+    
+    // Find commission part (usually contains %)
+    let commissions = '';
+    let ratesEndIndex = parts.length;
+    for (let i = parts.length - 1; i >= ratesStartIndex; i--) {
+      if (parts[i].includes('%')) {
+        commissions = parts[i];
+        ratesEndIndex = i;
+        break;
+      }
+    }
+    
+    const rates = parts.slice(ratesStartIndex, ratesEndIndex).join(' ');
+    
+    return {
+      stemSize,
+      tolerance,
+      route,
+      rates,
+      commissions,
+      full: sysName
+    };
+  };
+
   const formatSysName = (sysName: string | null) => {
     if (!sysName) return 'Unnamed Route';
     // Truncate very long sys_name for display
@@ -293,14 +345,23 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
   };
   
   if (currentState === 'compact') {
+    const sysNameParts = parseSysName(route.sys_name);
+    
     return (
       <div 
         className="flex items-center justify-between p-3 border bg-white rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
         onClick={handleCardClick}
       >
-        <div className="flex-1">
-          <div className="font-medium text-sm">{formatSysName(route.sys_name)}</div>
-          <div className="text-xs text-muted-foreground">{route.customer || 'No Customer'}</div>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm truncate">
+            {sysNameParts.stemSize && sysNameParts.tolerance && sysNameParts.route ? 
+              `${sysNameParts.stemSize} ${sysNameParts.tolerance} ${sysNameParts.route}` :
+              formatSysName(route.sys_name)
+            }
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            {route.customer || 'No Customer'}
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           <div className="text-right">
@@ -326,13 +387,35 @@ export function RouteCalculationCard({ route, showChart = true, compact = false,
     );
   }
   
+  const sysNameParts = parseSysName(route.sys_name);
+  
   return (
     <Card className="overflow-hidden rounded-xl cursor-pointer hover:shadow-md transition-shadow" onClick={handleCardClick}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{formatSysName(route.sys_name)}</CardTitle>
-            <CardDescription>{route.customer || 'No Customer'}</CardDescription>
+          <div className="flex-1 min-w-0">
+            {/* Structured System Name Display */}
+            <div className="space-y-1" title={sysNameParts.full}>
+              <div className="flex items-center gap-2 flex-wrap">
+                {sysNameParts.stemSize && (
+                  <span className="text-lg font-semibold text-blue-600">{sysNameParts.stemSize}</span>
+                )}
+                {sysNameParts.tolerance && (
+                  <span className="text-sm text-muted-foreground">{sysNameParts.tolerance}</span>
+                )}
+                {sysNameParts.route && (
+                  <span className="text-lg font-medium">{sysNameParts.route}</span>
+                )}
+              </div>
+              {(sysNameParts.rates || sysNameParts.commissions) && (
+                <div className="text-sm text-muted-foreground">
+                  {sysNameParts.rates && <span>{sysNameParts.rates}</span>}
+                  {sysNameParts.rates && sysNameParts.commissions && <span className="mx-2">•</span>}
+                  {sysNameParts.commissions && <span>{sysNameParts.commissions}</span>}
+                </div>
+              )}
+            </div>
+            <CardDescription className="mt-2">{route.customer || 'No Customer'}</CardDescription>
             {route.route && (
               <div className="text-sm text-muted-foreground mt-1">{route.route}</div>
             )}

@@ -20,7 +20,6 @@ export function useUserProfile() {
     
     const fetchProfile = async () => {
       try {
-        console.log("Starting to fetch profile");
         setLoading(true);
         setError(null);
 

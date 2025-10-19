@@ -3,6 +3,7 @@ import { Database } from '@/types/database';
 type RouteData = Database['public']['Tables']['routes']['Row'];
 
 interface CalculationRequest {
+  id: string;
   calcAllRates: boolean;
   total_vlsfo: number | null;
   total_lsmgo: number | null;
@@ -42,6 +43,7 @@ export async function calculateFreightRate(routeData: Partial<RouteData>, calcAl
   try {
     // Prepare request data
     const requestData: CalculationRequest = {
+      id: routeData.id || '',
       total_vlsfo: routeData.total_vlsfo || null,
       total_lsmgo: routeData.total_lsmgo || null,
       total_pda: routeData.total_pda || null,

@@ -37,8 +37,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { useToast } from "@/hooks/use-toast";
 import { Database } from "@/types/database";
 import { calculateFreightRate } from "@/lib/freight-calculator";
+import { RichTextEditor } from "@/components/ui/rich-text-editor-wrapper";
 
 type RouteData = Database['public']['Tables']['routes']['Insert'];
 
@@ -102,6 +104,9 @@ interface FormData {
     nov: { value: string; unit: string };
     dec: { value: string; unit: string };
   };
+
+  // Terms & Conditions
+  termsConditions: string;
 }
 
 const MONTHS = [
@@ -177,6 +182,7 @@ export default function NewCalculationPage() {
       nov: { value: '', unit: 'USD' },
       dec: { value: '', unit: 'USD' },
     },
+    termsConditions: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -201,6 +207,7 @@ export default function NewCalculationPage() {
   const [isCalculating, setIsCalculating] = useState(false);
 
   const { profile } = useUserProfile();
+  const { toast } = useToast();
 
   // Fetch FFA contracts
   const fetchFfaContracts = async () => {
@@ -354,6 +361,7 @@ export default function NewCalculationPage() {
             nov: { value: routeData.diff_nov?.toString() || '', unit: routeData.diff_nov_unit || 'USD' },
             dec: { value: routeData.diff_dec?.toString() || '', unit: routeData.diff_dec_unit || 'USD' },
           },
+          termsConditions: routeData.terms || '',
         });
 
         // Set search terms for dropdowns
@@ -387,9 +395,12 @@ export default function NewCalculationPage() {
     };
   }, []);
 
-  // Calculate freight rate using API - only for new calculations or when user actively edits
+  // Calculate freight rate using API - only for new calculations (not edit mode)
   useEffect(() => {
     const performCalculation = async () => {
+      // Skip calculation entirely if we're in edit mode
+      if (isEditMode) return;
+
       // Only calculate if we have the required fields
       if (!formData.totalDuration ||
         !formData.route ||
@@ -400,14 +411,12 @@ export default function NewCalculationPage() {
       // Skip if already calculating
       if (isCalculating) return;
 
-      // Skip calculation if we're in edit mode and still loading initial data
-      if (isEditMode && initialLoading) return;
-
       setIsCalculating(true);
       setCalculationLoading(true);
 
       try {
         const routeData = {
+          id: routeId || '', // Include the route ID for the calculation
           total_vlsfo: parseFloat(formData.totalVlsfoConsumption),
           total_lsmgo: parseFloat(formData.totalLsmgoConsumption),
           total_pda: parseFloat(formData.totalPda),
@@ -421,12 +430,14 @@ export default function NewCalculationPage() {
           commission: parseFloat(formData.commission),
           commission_adress: parseFloat(formData.addressCommission),
           calcMonth: null,
-        };
-
-        console.log(routeData);
+        };        
 
         const result = await calculateFreightRate(routeData);
-        formData.rate = result.freightRate;
+        setFormData(prev => ({
+          ...prev,
+          rate: result.freightRate,
+          rates: result.freightRates || prev.rates
+        }));
       } catch (error) {
         console.error('Calculation error:', error);
         // Keep existing values on error
@@ -454,6 +465,7 @@ export default function NewCalculationPage() {
     formData.difference,
     formData.commission,
     formData.addressCommission,
+    isEditMode,
   ]);
 
   const handleInputChange = (field: string, value: string) => {
@@ -469,6 +481,7 @@ export default function NewCalculationPage() {
         [field]: ''
       }));
     }
+
   };
 
   // Handle route search and selection
@@ -605,8 +618,6 @@ export default function NewCalculationPage() {
     // Construct the system name with proper formatting
     const sysName = `${stemSize}' ${intakeTolerance} ${loadPortName}-${dischargePortName} ${loadRate} satpm / ${dischargeRate} satpm ${addressCommissionValue}%+${commissionValue}%`;
 
-    console.log(sysName);
-
     return sysName;
   };
 
@@ -636,33 +647,6 @@ export default function NewCalculationPage() {
 
     setLoading(true);
     try {
-      // Calculate freight rate before saving
-      if (formData.totalDuration && formData.bunkerPort && formData.route) {
-        try {
-          const routeData = {
-            total_vlsfo: parseFloat(formData.totalVlsfoConsumption),
-            total_lsmgo: parseFloat(formData.totalLsmgoConsumption),
-            total_pda: parseFloat(formData.totalPda),
-            total_misc: parseFloat(formData.totalMisc),
-            intake: parseFloat(formData.intake),
-            stemsize: parseFloat(formData.stemSize),
-            duration: parseFloat(formData.totalDuration),
-            route: formData.route,
-            fuel: formData.bunkerPort,
-            difference: parseFloat(formData.difference),
-            commission: parseFloat(formData.commission),
-            commission_adress: parseFloat(formData.addressCommission),
-            calcMonth: null,
-          };
-
-          const result = await calculateFreightRate(routeData, true);
-          formData.rate = result.freightRate;
-          formData.rates = result.freightRates;
-        } catch (error) {
-          console.error('Calculation error during save:', error);
-          // Continue with existing freight rate if calculation fails
-        }
-      }
 
       const supabase = createClient();
 
@@ -693,7 +677,6 @@ export default function NewCalculationPage() {
         intake_tolerance: formData.intakeTolerance,
         rate: formData.rate,
         fuel: formData.bunkerPort,
-        terms: `${formData.loadTerms} / ${formData.dischargeTerms}`,
         stemsize: parseFloat(formData.stemSize) || null,
         sys_name: constructSysName(),
         active: true,
@@ -724,6 +707,7 @@ export default function NewCalculationPage() {
         diff_dec_unit: formData.seasonalDifferences.dec.unit,
         fobid: formData.fob,
         rates: formData.rates,
+        terms: formData.termsConditions,
       };
 
       let error;
@@ -744,12 +728,50 @@ export default function NewCalculationPage() {
 
       if (error) throw error;
 
-      // Navigate back to calculations page
-      router.push('/dashboard/calculations');
+      // Calculate freight rate before saving
+      if (formData.totalDuration && formData.bunkerPort && formData.route) {
+        try {
+          const routeData = {
+            id: routeId || '', // Include the route ID for the calculation
+            total_vlsfo: parseFloat(formData.totalVlsfoConsumption),
+            total_lsmgo: parseFloat(formData.totalLsmgoConsumption),
+            total_pda: parseFloat(formData.totalPda),
+            total_misc: parseFloat(formData.totalMisc),
+            intake: parseFloat(formData.intake),
+            stemsize: parseFloat(formData.stemSize),
+            duration: parseFloat(formData.totalDuration),
+            route: formData.route,
+            fuel: formData.bunkerPort,
+            difference: parseFloat(formData.difference),
+            commission: parseFloat(formData.commission),
+            commission_adress: parseFloat(formData.addressCommission),
+            calcMonth: null,
+          };
+
+          const result = await calculateFreightRate(routeData, true);
+          formData.rate = result.freightRate;
+          formData.rates = result.freightRates;
+        } catch (error) {
+          console.error('Calculation error during save:', error);
+          // Continue with existing freight rate if calculation fails
+        }
+      }
+
+      // Stay on the detail page after successful save
+      toast({
+        variant: "success",
+        title: "Success",
+        description: `Calculation ${isEditMode ? 'updated' : 'created'} successfully!`,
+      });
+      setErrors({}); // Clear any existing errors
 
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} calculation:`, error);
-      setErrors({ submit: `Failed to ${isEditMode ? 'update' : 'create'} calculation. Please try again.` });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to ${isEditMode ? 'update' : 'create'} calculation. Please try again.`,
+      });
     } finally {
       setLoading(false);
     }
@@ -1392,10 +1414,30 @@ export default function NewCalculationPage() {
 
             <TabsContent value="terms">
               <Card>
-                <CardContent className="pt-8">
-                  <div className="text-center text-muted-foreground py-16">
-                    <p className="text-xl font-medium mb-4">Terms & Conditions</p>
-                    <p className="text-base">Terms configuration will be available here</p>
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center">
+                    <FileText className="h-6 w-6 mr-3" />
+                    Terms & Conditions
+                  </CardTitle>
+                  <CardDescription>
+                    Define the terms and conditions for this freight calculation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="terms" className="text-base font-medium">
+                        Terms & Conditions
+                      </Label>
+                      <div className="mt-2">
+                        <RichTextEditor
+                          content={formData.termsConditions}
+                          onChange={(content) => handleInputChange('termsConditions', content)}
+                          placeholder="Enter terms and conditions for this freight calculation..."
+                          className="min-h-[300px]"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1412,6 +1454,7 @@ export default function NewCalculationPage() {
               </Card>
             </TabsContent>
           </Tabs>
+
 
           {/* Error Display */}
           {errors.submit && (

@@ -58,3 +58,58 @@
   }
 }
 
+@layer components {
+  /* Rich Text Editor Styles */
+  .ProseMirror {
+    outline: none;
+    padding: 1rem;
+    min-height: 200px;
+  }
+
+  .ProseMirror p.is-editor-empty:first-child::before {
+    color: #adb5bd;
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .ProseMirror ul,
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+  }
+
+  .ProseMirror blockquote {
+    border-left: 3px solid #e5e7eb;
+    padding-left: 1rem;
+    font-style: italic;
+    color: #6b7280;
+  }
+
+  .ProseMirror a {
+    color: #3b82f6;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .ProseMirror a:hover {
+    color: #1d4ed8;
+  }
+
+  .ProseMirror strong {
+    font-weight: 600;
+  }
+
+  .ProseMirror em {
+    font-style: italic;
+  }
+
+  .ProseMirror u {
+    text-decoration: underline;
+  }
+
+  .ProseMirror s {
+    text-decoration: line-through;
+  }
+}
+

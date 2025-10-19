@@ -42,7 +42,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     }
   }
 });
-console.info('Starting FFA Fetch');
+
 Deno.serve(async (req)=>{
   try {
     const token = '8n8364wS64Wjawo5HnJxN8m4Bi5xcpz1';
