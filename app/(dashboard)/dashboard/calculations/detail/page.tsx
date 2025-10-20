@@ -256,11 +256,6 @@ export default function NewCalculationPage() {
     }
   };
 
-  // Fetch port data by ID - DEPRECATED: Ports now stored as names
-  // const fetchPortById = async (portId: string) => {
-  //   // This function is no longer needed since we store port names directly
-  // };
-
   // Load data on component mount
   useEffect(() => {
     const loadInitialData = async () => {
