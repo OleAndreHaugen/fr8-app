@@ -242,7 +242,7 @@ export default function CalculationsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 h-full overflow-y-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">My Calculations</h1>

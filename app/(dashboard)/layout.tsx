@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <Header user={user} />
-      <main className="flex-1 overflow-y-auto bg-secondary/50">
+      <main className="flex-1 overflow-hidden bg-secondary/50">
         <AccountAssignmentWrapper user={user}>
           {children}
         </AccountAssignmentWrapper>

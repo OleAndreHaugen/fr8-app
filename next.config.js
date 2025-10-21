@@ -10,6 +10,17 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Exclude Supabase functions from Next.js compilation
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        'supabase/functions': 'commonjs supabase/functions',
+      });
+    }
+    
+    return config;
+  },
   async headers() {
     return [
       {

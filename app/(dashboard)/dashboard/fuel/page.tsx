@@ -209,7 +209,7 @@ export default function FuelPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 h-full overflow-y-auto">
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Fuel Overview</h1>
         <p className="text-muted-foreground">

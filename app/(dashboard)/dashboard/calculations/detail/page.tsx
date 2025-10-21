@@ -806,7 +806,7 @@ export default function NewCalculationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-10 w-full">
+    <div className="min-h-screen bg-gray-10 w-full h-full overflow-y-auto">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="mx-auto px-6 lg:px-8">
@@ -853,7 +853,7 @@ export default function NewCalculationPage() {
 
       {/* Main Content */}
       <div className="w-full mx-auto px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+        <div className="space-y-8 mb-20">
           {/* Form Sections */}
           <Tabs defaultValue="info" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8 h-12 p-0 bg-secondary">

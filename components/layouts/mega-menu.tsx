@@ -38,7 +38,7 @@ const navigationItems = [
     name: "Chat",
     href: "/dashboard/chat",
     icon: MessageSquare,
-    description: "Communicate with team members",
+    description: "Chat with our AI agent FRAI",
     category: "Operations",
   },
   {
