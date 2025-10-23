@@ -19,21 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortsDialog } from "@/components/ui/ports-dialog";
 import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  Copy,
   Calculator,
-  Fuel,
   MapPin,
   Calendar,
   Save,
   X,
   FileText,
-  Search
+  Search,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/hooks/use-user-profile";
@@ -188,8 +187,17 @@ export default function NewCalculationPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [seasonalExpanded, setSeasonalExpanded] = useState(false);
+  const [termsExpanded, setTermsExpanded] = useState(false);
+  const [termsFullscreen, setTermsFullscreen] = useState(false);
+  const [generalExpanded, setGeneralExpanded] = useState(true);
+  const [portExpanded, setPortExpanded] = useState(true);
+  const [calculationExpanded, setCalculationExpanded] = useState(true);
   const [calculationLoading, setCalculationLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(isEditMode);
+  const [vlsfoPrice, setVlsfoPrice] = useState<number | null>(null);
+  const [lsmgoPrice, setLsmgoPrice] = useState<number | null>(null);
+  const [hlsfoPrice, setHlsfoPrice] = useState<number | null>(null);
+  const [ffaPrice, setFfaPrice] = useState<number | null>(null);
   const [ffaContracts, setFfaContracts] = useState<string[]>([]);
   const [routeSearchTerm, setRouteSearchTerm] = useState('');
   const [showRouteDropdown, setShowRouteDropdown] = useState(false);
@@ -253,6 +261,52 @@ export default function NewCalculationPage() {
       console.error('Error fetching fuel names:', error);
     } finally {
       setIsLoadingFuel(false);
+    }
+  };
+
+  // Fetch fuel prices based on selected bunker port
+  const fetchFuelPrices = async (fuelName: string) => {
+    try {
+      console.log("Get fuel name",fuelName);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('fuel')
+        .select('type,price')
+        .eq('product', fuelName);
+
+      if (error) throw error;
+
+      if (data) {
+        setVlsfoPrice(data.find(item => item.type === 'vlsfo')?.price);
+        setLsmgoPrice(data.find(item => item.type === 'mgo')?.price);
+        setHlsfoPrice(data.find(item => item.type === 'hsfo')?.price);
+      }
+    } catch (error) {
+      console.error('Error fetching fuel prices:', error);
+      setVlsfoPrice(null);
+      setLsmgoPrice(null);
+      setHlsfoPrice(null);
+    }
+  };
+
+  // Fetch FFA price based on selected route
+  const fetchFfaPrice = async (contract: string) => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('ffa')
+        .select('forward')
+        .eq('contract', contract)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFfaPrice(data.forward?.price0);
+      }
+    } catch (error) {
+      console.error('Error fetching FFA price:', error);
+      setFfaPrice(null);
     }
   };
 
@@ -363,6 +417,13 @@ export default function NewCalculationPage() {
         setRouteSearchTerm(routeData.route || '');
         setBunkerSearchTerm(routeData.fuel || '');
 
+        // Fetch prices for loaded route and bunker port
+        if (routeData.route) {
+          fetchFfaPrice(routeData.route);
+        }
+        if (routeData.fuel) {
+          fetchFuelPrices(routeData.fuel);
+        }
       }
     } catch (error) {
       console.error('Error loading route data:', error);
@@ -493,6 +554,9 @@ export default function NewCalculationPage() {
     setRouteSearchTerm(contract);
     setShowRouteDropdown(false);
 
+    // Fetch FFA price for selected route
+    fetchFfaPrice(contract);
+
     // Clear error when user selects
     if (errors.route) {
       setErrors(prev => ({
@@ -523,6 +587,9 @@ export default function NewCalculationPage() {
     }));
     setBunkerSearchTerm(name);
     setShowBunkerDropdown(false);
+
+    // Fetch fuel prices for selected bunker port
+    fetchFuelPrices(name);
 
     // Clear error when user selects
     if (errors.bunkerPort) {
@@ -787,10 +854,7 @@ export default function NewCalculationPage() {
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
-                </Button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Loading...</h1>
-                </div>
+                </Button>  
               </div>
             </div>
           </div>
@@ -806,7 +870,7 @@ export default function NewCalculationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-10 w-full h-full overflow-y-auto">
+    <div className="min-h-screen bg-gray-10 w-full h-full">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="mx-auto px-6 lg:px-8">
@@ -821,27 +885,30 @@ export default function NewCalculationPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {isEditMode ? 'Edit Calculation' : 'New Calculation'}
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {isEditMode ? 'Edit existing freight calculation' : 'Create a new freight calculation'}
-                </p>
+            </div>
+            <div className="flex items-center space-x-4 text-sm">
+              <div className="flex flex-col items-center px-4 py-1 bg-green-50 rounded-lg border border-green-200">
+                <span className="text-xs text-gray-500 uppercase">Freight Rate</span>
+                <span className="text-lg font-bold text-green-700">{formData.rate.toFixed(2)} <span className="text-xs text-gray-500">$</span></span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1 bg-orange-50 rounded-lg border border-orange-200">
+                <span className="text-xs text-gray-500 uppercase">VLSFO</span>
+                <span className="text-lg font-bold text-orange-700">{vlsfoPrice ? vlsfoPrice.toFixed(2) : '---'} <span className="text-xs text-gray-500">$</span></span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1 bg-orange-50 rounded-lg border border-orange-200">
+                <span className="text-xs text-gray-500 uppercase">LSMGO</span>
+                <span className="text-lg font-bold text-orange-700">{lsmgoPrice ? lsmgoPrice.toFixed(2) : '---'} <span className="text-xs text-gray-500">$</span></span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1 bg-orange-50 rounded-lg border border-orange-200">
+                <span className="text-xs text-gray-500 uppercase">HLSFO</span>
+                <span className="text-lg font-bold text-orange-700">{hlsfoPrice ? hlsfoPrice.toFixed(2) : '---'} <span className="text-xs text-gray-500">$</span></span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                <span className="text-xs text-gray-500 uppercase">P6_82</span>
+                <span className="text-lg font-bold text-purple-700">{ffaPrice ? ffaPrice.toLocaleString() : '---'} <span className="text-xs text-gray-500">$</span></span>
               </div>
             </div>
-            <div className="text-sm text-gray-600">
-              Freight Rate: {formData.rate.toFixed(2)} USD
-            </div>
             <div className="flex items-center space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard/calculations')}
-                disabled={loading}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
               <Button onClick={handleSubmit} disabled={loading}>
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save')}
@@ -852,20 +919,17 @@ export default function NewCalculationPage() {
       </div>
 
       {/* Main Content */}
-      <div className="w-full mx-auto px-6 lg:px-8 py-8">
-        <div className="space-y-8 mb-20">
-          {/* Form Sections */}
-          <Tabs defaultValue="info" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8 h-12 p-0 bg-secondary">
-              <TabsTrigger value="info" className="text-base py-3 px-6">General Information</TabsTrigger>
-              <TabsTrigger value="terms" className="text-base py-3 px-6">Terms & Conditions</TabsTrigger>
-              <TabsTrigger value="attachment" className="text-base py-3 px-6">Attachments</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="info" className="space-y-8">
-              {/* General Section */}
-              <Card>
-                <CardHeader>
+      <div className="w-full mx-auto px-6 lg:px-8 py-8 overflow-y-auto h-full">
+        <div className="space-y-8 mb-[150px]">
+          {/* General Section */}
+          <Card>
+            <CardHeader>
+              <Button
+                variant="link"
+                onClick={() => setGeneralExpanded(!generalExpanded)}
+                className="flex items-center justify-between w-full p-0 h-auto"
+              >
+                <div className="text-left">
                   <CardTitle className="text-xl flex items-center">
                     <FileText className="h-6 w-6 mr-3" />
                     General Information
@@ -873,8 +937,16 @@ export default function NewCalculationPage() {
                   <CardDescription>
                     Basic details about the freight calculation
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </div>
+                {generalExpanded ? (
+                  <ChevronUp className="h-5 w-5" />
+                ) : (
+                  <ChevronDown className="h-5 w-5" />
+                )}
+              </Button>
+            </CardHeader>
+            {generalExpanded && (
+              <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-6">
                       <div>
@@ -885,7 +957,7 @@ export default function NewCalculationPage() {
                           id="customer"
                           value={formData.customer}
                           onChange={(e) => handleInputChange('customer', e.target.value)}
-                          className={`mt-2 h-12 text-base ${errors.customer ? 'border-red-500' : ''}`}
+                          className={`mt-2 h-12 text-base border rounded-md ${errors.customer ? 'border-red-500' : 'border-gray-200'}`}
                           placeholder="Enter customer name"
                         />
                         {errors.customer && (
@@ -1077,12 +1149,19 @@ export default function NewCalculationPage() {
                       }
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </CardContent>
+            )}
+          </Card>
 
-              {/* Port Section */}
-              <Card>
-                <CardHeader>
+          {/* Port Section */}
+          <Card>
+            <CardHeader>
+              <Button
+                variant="link"
+                onClick={() => setPortExpanded(!portExpanded)}
+                className="flex items-center justify-between w-full p-0 h-auto"
+              >
+                <div className="text-left">
                   <CardTitle className="text-xl flex items-center">
                     <MapPin className="h-6 w-6 mr-3" />
                     Port Information
@@ -1090,8 +1169,16 @@ export default function NewCalculationPage() {
                   <CardDescription>
                     Loading and discharge port details with rates and terms
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </div>
+                {portExpanded ? (
+                  <ChevronUp className="h-5 w-5" />
+                ) : (
+                  <ChevronDown className="h-5 w-5" />
+                )}
+              </Button>
+            </CardHeader>
+            {portExpanded && (
+              <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-6">
                       <div>
@@ -1230,12 +1317,19 @@ export default function NewCalculationPage() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </CardContent>
+            )}
+          </Card>
 
-              {/* Calculation Section */}
-              <Card>
-                <CardHeader>
+          {/* Calculation Section */}
+          <Card>
+            <CardHeader>
+              <Button
+                variant="link"
+                onClick={() => setCalculationExpanded(!calculationExpanded)}
+                className="flex items-center justify-between w-full p-0 h-auto"
+              >
+                <div className="text-left">
                   <CardTitle className="text-xl flex items-center">
                     <Calculator className="h-6 w-6 mr-3" />
                     Cost Calculation
@@ -1243,8 +1337,16 @@ export default function NewCalculationPage() {
                   <CardDescription>
                     Fuel consumption, port costs, and commission details
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </div>
+                {calculationExpanded ? (
+                  <ChevronUp className="h-5 w-5" />
+                ) : (
+                  <ChevronDown className="h-5 w-5" />
+                )}
+              </Button>
+            </CardHeader>
+            {calculationExpanded && (
+              <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-6">
                       <div>
@@ -1345,14 +1447,15 @@ export default function NewCalculationPage() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </CardContent>
+            )}
+          </Card>
 
-              {/* Seasonal Differences Section */}
-              <Card>
+          {/* Seasonal Differences Section */}
+          <Card>
                 <CardHeader>
                   <Button
-                    variant="ghost"
+                    variant="link"
                     onClick={() => setSeasonalExpanded(!seasonalExpanded)}
                     className="flex items-center justify-between w-full p-0 h-auto"
                   >
@@ -1404,12 +1507,17 @@ export default function NewCalculationPage() {
                     </div>
                   </CardContent>
                 )}
-              </Card>
-            </TabsContent>
+          </Card>
 
-            <TabsContent value="terms">
-              <Card>
-                <CardHeader>
+          {/* Terms & Conditions Section */}
+          <Card>
+            <CardHeader>
+              <Button
+                variant="link"
+                onClick={() => setTermsExpanded(!termsExpanded)}
+                className="flex items-center justify-between w-full p-0 h-auto"
+              >
+                <div className="text-left">
                   <CardTitle className="text-xl flex items-center">
                     <FileText className="h-6 w-6 mr-3" />
                     Terms & Conditions
@@ -1417,38 +1525,35 @@ export default function NewCalculationPage() {
                   <CardDescription>
                     Define the terms and conditions for this freight calculation
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="terms" className="text-base font-medium">
-                        Terms & Conditions
-                      </Label>
-                      <div className="mt-2">
-                        <RichTextEditor
-                          content={formData.termsConditions}
-                          onChange={(content) => handleInputChange('termsConditions', content)}
-                          placeholder="Enter terms and conditions for this freight calculation..."
-                          className="min-h-[300px]"
-                        />
-                      </div>
+                </div>
+                {termsExpanded ? (
+                  <ChevronUp className="h-5 w-5" />
+                ) : (
+                  <ChevronDown className="h-5 w-5" />
+                )}
+              </Button>
+            </CardHeader>
+            {termsExpanded && (
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="terms" className="text-base font-medium">
+                      Terms & Conditions
+                    </Label>
+                    <div className="mt-2 terms-editor-container">
+                      <RichTextEditor
+                        content={formData.termsConditions}
+                        onChange={(content) => handleInputChange('termsConditions', content)}
+                        placeholder="Enter terms and conditions for this freight calculation..."
+                        showFullscreenButton={true}
+                        onFullscreenToggle={() => setTermsFullscreen(true)}
+                      />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="attachment">
-              <Card>
-                <CardContent className="pt-8">
-                  <div className="text-center text-muted-foreground py-16">
-                    <p className="text-xl font-medium mb-4">Attachments</p>
-                    <p className="text-base">File attachments will be available here</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                </div>
+              </CardContent>
+            )}
+          </Card>
 
 
           {/* Error Display */}
@@ -1482,6 +1587,56 @@ export default function NewCalculationPage() {
         description="Choose a port for discharging cargo"
         initialNameFilter={formData.dischargePort}
       />
+
+      {/* Fullscreen Terms & Conditions Editor */}
+      {termsFullscreen && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          {/* Fullscreen Header */}
+          <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <FileText className="h-6 w-6 mr-3" />
+                Terms & Conditions - Fullscreen Editor
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Edit your terms and conditions in fullscreen mode
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setTermsFullscreen(false)}
+              className="flex items-center"
+            >
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Exit Fullscreen
+            </Button>
+          </div>
+
+          {/* Fullscreen Editor Content */}
+          <div className="flex-1 w-full overflow-hidden">
+            <div className="w-full mx-auto">
+              <RichTextEditor
+                content={formData.termsConditions}
+                onChange={(content) => handleInputChange('termsConditions', content)}
+                placeholder="Enter terms and conditions for this freight calculation..."
+                className="h-full terms-editor-fullscreen"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom CSS for Terms Editor */}
+      <style jsx global>{`
+        .terms-editor-container .rich-text-editor-content {
+          max-height: 400px; 
+          overflow-y: auto;
+        }
+        .terms-editor-fullscreen .rich-text-editor-content {
+          max-height: calc(100vh - 140px); 
+          overflow-y: auto;
+        }
+      `}</style>
     </div>
   );
 }
